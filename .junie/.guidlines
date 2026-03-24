@@ -1,0 +1,142 @@
+# Junie AI Rules Index (Laravel + DDD + Clean Architecture)
+
+## 📌 Назначение
+
+Этот файл является ТОЧКОЙ ВХОДА для AI-ассистента.
+
+Все правила проекта подключаются отсюда.
+AI ОБЯЗАН читать этот файл перед генерацией кода.
+
+---
+
+## 📚 Подключённые правила
+
+### 🏗 Архитектура
+@include ./architecture.rules.md
+
+---
+
+### 🧠 DDD
+@include ./ddd.rules.md
+
+---
+
+### 🧩 Clean Architecture
+@include ./clean-architecture.rules.md
+
+---
+
+### 🏷 Naming
+@include ./naming.rules.md
+
+---
+
+### ⚙ Laravel
+@include ./laravel.rules.md
+
+---
+
+### 📁 Структура проекта
+@include ./project.structure.md
+
+---
+
+### 🚫 Anti-patterns
+@include ./anti-patterns.rules.md
+
+---
+
+### 🤖 AI поведение
+@include ./example.prompt.md
+
+---
+
+## ⚠️ Приоритет правил
+
+Если правила конфликтуют:
+
+1. Architecture Rules (самый высокий приоритет)
+2. DDD Rules
+3. Clean Architecture
+4. Laravel Rules
+5. Остальные
+
+---
+
+## 🧭 Алгоритм работы AI
+
+Перед генерацией кода AI должен:
+
+1. Определить слой:
+   - Domain?
+   - Application?
+   - Infrastructure?
+   - Presentation?
+
+2. Определить тип объекта:
+   - Entity / ValueObject?
+   - UseCase?
+   - Controller?
+   - Repository?
+
+3. Проверить:
+   - Нет ли нарушения dependency rule
+   - Нет ли бизнес-логики вне Domain/Application
+
+4. Только после этого генерировать код
+
+---
+
+## 🧪 Генерация новой фичи
+
+Если пользователь просит "сделать X":
+
+AI должен создать:
+
+1. Domain:
+   - Entity
+   - Value Objects (если нужно)
+   - Repository Interface
+
+2. Application:
+   - DTO
+   - UseCase
+
+3. Infrastructure:
+   - Repository implementation (Eloquent)
+
+4. Presentation:
+   - Controller
+   - Request
+
+---
+
+## 🔒 Жёсткие ограничения
+
+AI НИКОГДА не должен:
+
+- писать бизнес-логику в Controller
+- использовать Eloquent в Domain
+- нарушать слои
+- пропускать UseCase
+
+---
+
+## ✅ Формат ответа
+
+AI должен:
+
+- сначала описать структуру
+- затем показать код
+- объяснить архитектурные решения (кратко)
+
+---
+
+## 🚀 Пример запроса
+
+"Создай Order систему"
+
+→ AI должен:
+- разбить на слои
+- создать все компоненты
+- не писать всё в одном месте
