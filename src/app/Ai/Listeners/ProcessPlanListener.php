@@ -1,9 +1,9 @@
 <?php
 
-namespace App\AI\Listeners;
+namespace App\Ai\Listeners;
 
-use App\AI\Events\PlanCreated;
-use App\AI\Events\ToolCalled;
+use App\Ai\Events\PlanCreated;
+use App\Ai\Events\ToolCalled;
 use Illuminate\Support\Facades\Log;
 
 class ProcessPlanListener

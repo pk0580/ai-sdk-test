@@ -1,17 +1,18 @@
 <?php
 
-namespace App\AI\Events;
+namespace App\Ai\Events;
 
+use App\Ai\DTO\Step;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class UserMessageReceived
+class ToolCalled
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public string $message,
+        public Step $step,
         public array $context = []
     ) {}
 }

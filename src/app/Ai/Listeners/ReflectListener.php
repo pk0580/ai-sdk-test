@@ -1,9 +1,9 @@
 <?php
 
-namespace App\AI\Listeners;
+namespace App\Ai\Listeners;
 
-use App\AI\Events\ToolResultReceived;
-use App\AI\Events\ReflectionGenerated;
+use App\Ai\Events\ToolResultReceived;
+use App\Ai\Events\ReflectionGenerated;
 use Illuminate\Support\Facades\Log;
 
 class ReflectListener

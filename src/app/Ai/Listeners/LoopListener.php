@@ -1,9 +1,9 @@
 <?php
 
-namespace App\AI\Listeners;
+namespace App\Ai\Listeners;
 
-use App\AI\Events\ReflectionGenerated;
-use App\AI\Events\StepCompleted;
+use App\Ai\Events\ReflectionGenerated;
+use App\Ai\Events\StepCompleted;
 use Illuminate\Support\Facades\Log;
 
 class LoopListener

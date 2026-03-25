@@ -169,20 +169,20 @@ app/
 
 ---
 
-# 🔧 6. Шаг 3: Tool Registry
+# 🔧 6. Шаг 3: Tool Registry ✓
 
-## Что делаем
+## Что сделаем
 
-Регистрируем инструменты
+Регистрируем инструменты через Laravel AI SDK (`Laravel\Ai\Contracts\Tool`).
+
+## Особенности
+* Инструменты создаются командой `php artisan make:tool`.
+* Реализуют контракт `Laravel\Ai\Contracts\Tool`.
+* Реестр `ToolRegistry` динамически извлекает метаданные инструментов для планировщика.
 
 ## Пример
-
-* calculator
-* vector_search
-
-## Почему
-
-👉 агент не должен знать реализацию tools
+* `CalculatorTool` (инструмент на базе AI SDK)
+* `vector_search` (заготовка для Шага 4)
 
 ---
 
@@ -299,3 +299,11 @@ Output
 * UI (timeline шагов)
 * self-improving agents
 * tool selection через embeddings
+
+---
+
+# 📂 15. Рефакторинг (Именование)
+
+* Весь функционал AI перенесен в пространство имен `App\Ai` (с маленькой 'i') для соответствия стандартам Laravel AI SDK.
+* Все вызовы `App\AI\*` заменены на `App\Ai\*`.
+* Тесты и сервис-провайдеры обновлены.

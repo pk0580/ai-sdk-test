@@ -4,17 +4,19 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
-use App\AI\Events\UserMessageReceived;
-use App\AI\Events\PlanCreated;
-use App\AI\Events\ToolCalled;
-use App\AI\Events\ToolResultReceived;
-use App\AI\Events\ReflectionGenerated;
-use App\AI\Listeners\PlanListener;
-use App\AI\Listeners\ExecuteToolListener;
-use App\AI\Listeners\ReflectListener;
-use App\AI\Listeners\LoopListener;
-use App\AI\Listeners\ProcessPlanListener;
+use App\Ai\Events\UserMessageReceived;
+use App\Ai\Events\PlanCreated;
+use App\Ai\Events\ToolCalled;
+use App\Ai\Events\ToolResultReceived;
+use App\Ai\Events\ReflectionGenerated;
+use App\Ai\Listeners\PlanListener;
+use App\Ai\Listeners\ExecuteToolListener;
+use App\Ai\Listeners\ReflectListener;
+use App\Ai\Listeners\LoopListener;
+use App\Ai\Listeners\ProcessPlanListener;
 use App\Console\Commands\TestAiAgent;
+use App\Ai\Tools\ToolRegistry;
+use App\Ai\Tools\CalculatorTool;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,7 +25,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ToolRegistry::class, function () {
+            $registry = new ToolRegistry();
+            $registry->register('calculator', new CalculatorTool());
+
+            return $registry;
+        });
     }
 
     /**

@@ -3,14 +3,15 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\AI\Core\Planner;
-use App\AI\DTO\Plan;
-use App\AI\DTO\Step;
-use Laravel\Ai\AnonymousAgent;
+use App\Ai\Core\Planner;
+use App\Ai\DTO\Plan;
+use App\Ai\DTO\Step;
+use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\Usage;
 use Mockery;
+use App\Ai\Tools\ToolRegistry;
 
 class PlannerTest extends TestCase
 {
@@ -18,6 +19,12 @@ class PlannerTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    protected function getPlanner(): Planner
+    {
+        $registry = new ToolRegistry();
+        return new Planner($registry);
     }
 
     public function test_planner_generates_correct_plan_on_success()
@@ -39,13 +46,13 @@ class PlannerTest extends TestCase
             new Meta()
         );
 
-        // Используем overload для подмены AnonymousAgent при его создании через new
-        $mockAgent = Mockery::mock('overload:' . AnonymousAgent::class);
+        // Так как agent() создает new AnonymousAgent, мы всё равно используем overload.
+        $mockAgent = Mockery::mock('overload:Laravel\Ai\AnonymousAgent');
         $mockAgent->shouldReceive('prompt')
             ->once()
             ->andReturn($mockResponse);
 
-        $planner = new Planner();
+        $planner = $this->getPlanner();
         $plan = $planner->generate('How much is 25 * 17?');
 
         $this->assertInstanceOf(Plan::class, $plan);
@@ -68,7 +75,7 @@ class PlannerTest extends TestCase
             ->once()
             ->andReturn($mockResponse);
 
-        $planner = new Planner();
+        $planner = $this->getPlanner();
         $plan = $planner->generate('test');
 
         $this->assertInstanceOf(Plan::class, $plan);
@@ -82,7 +89,7 @@ class PlannerTest extends TestCase
             ->once()
             ->andThrow(new \Exception('AI Error'));
 
-        $planner = new Planner();
+        $planner = $this->getPlanner();
         $plan = $planner->generate('test');
 
         $this->assertInstanceOf(Plan::class, $plan);

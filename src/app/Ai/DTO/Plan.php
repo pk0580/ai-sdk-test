@@ -1,6 +1,6 @@
 <?php
 
-namespace App\AI\DTO;
+namespace App\Ai\DTO;
 
 use Illuminate\Support\Collection;
 

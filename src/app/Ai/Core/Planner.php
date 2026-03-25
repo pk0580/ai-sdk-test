@@ -1,21 +1,32 @@
 <?php
 
-namespace App\AI\Core;
+namespace App\Ai\Core;
 
-use App\AI\DTO\Plan;
-use App\AI\DTO\Step;
+use App\Ai\DTO\Plan;
+use App\Ai\DTO\Step;
+use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
-use function Laravel\Ai\{agent};
+use Laravel\Ai\AnonymousAgent;
 
 class Planner
 {
-    private const string INSTRUCTIONS = <<<PROMPT
+    private ToolRegistry $toolRegistry;
+
+    public function __construct(ToolRegistry $toolRegistry)
+    {
+        $this->toolRegistry = $toolRegistry;
+    }
+
+    private function getInstructions(): string
+    {
+        $definitions = json_encode($this->toolRegistry->getToolsDefinitions(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        return <<<PROMPT
 Ты — ИИ-планировщик. Твоя задача — разбить запрос пользователя на последовательность выполняемых шагов.
 Каждый шаг должен указывать используемый инструмент и его параметры.
 
 Доступные инструменты:
-1. calculator - используется для математических вычислений. Параметры: { "expression": "string" }
-2. vector_search - используется для поиска информации в базе знаний. Параметры: { "query": "string" }
+{$definitions}
 
 Ответ должен быть СТРОГО в формате JSON:
 {
@@ -28,13 +39,15 @@ class Planner
   ]
 }
 PROMPT;
+    }
 
     public function generate(string $message): Plan
     {
         Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
 
         try {
-            $response = agent(self::INSTRUCTIONS, [], [])->prompt($message);
+            $agent = new AnonymousAgent($this->getInstructions(), [], []);
+            $response = $agent->prompt($message);
             $text = (string) $response;
 
             Log::debug("Планировщик: Ответ LLM", ['text' => $text]);

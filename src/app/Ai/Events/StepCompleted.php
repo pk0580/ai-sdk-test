@@ -1,18 +1,19 @@
 <?php
 
-namespace App\AI\Events;
+namespace App\Ai\Events;
 
-use App\AI\DTO\Plan;
+use App\Ai\DTO\Step;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class PlanCreated
+class StepCompleted
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public Plan $plan,
+        public Step $step,
+        public mixed $result = null,
         public array $context = []
     ) {}
 }

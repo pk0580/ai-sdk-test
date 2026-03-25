@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\AI\Events\UserMessageReceived;
+use App\Ai\Events\UserMessageReceived;
 
 class TestAiAgent extends Command
 {
