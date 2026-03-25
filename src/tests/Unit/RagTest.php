@@ -84,16 +84,29 @@ class RagTest extends TestCase
 
     public function test_vector_search_tool_returns_not_found_message()
     {
+        // Не используем fakeEmbeddings, а мокаем VectorStore или используем пустую коллекцию в результате
+        // Но VectorSearchTool использует VectorStore внутри. Проще всего сделать, чтобы поиск ничего не нашел
+
+        // Mock the embeddings creation
         Ai::fakeEmbeddings(function ($inputs) {
             return array_map(fn() => array_fill(0, 768, 0.1), $inputs);
         });
 
-        $store = new VectorStore();
-        $tool = new VectorSearchTool($store);
+        // Создаем мок для VectorStore, чтобы он возвращал пустую коллекцию
+        $mockStore = \Mockery::mock(VectorStore::class);
+        $mockStore->shouldReceive('search')->andReturn(collect([]));
 
-        $request = new Request(['query' => 'empty', 'limit' => 1]);
+        // Нам нужно, чтобы Document::count() > 0
+        Document::create([
+            'content' => 'dummy',
+            'embedding' => new \Pgvector\Laravel\Vector(array_fill(0, 768, 0.1))
+        ]);
+
+        $tool = new VectorSearchTool($mockStore);
+
+        $request = new Request(['query' => 'nonexistent', 'limit' => 1]);
         $result = $tool->handle($request);
 
-        $this->assertEquals('No relevant information found.', $result);
+        $this->assertEquals("No relevant information found for the query: 'nonexistent'.", $result);
     }
 }

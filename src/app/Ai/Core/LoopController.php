@@ -23,6 +23,8 @@ class LoopController
     private ToolRegistry $toolRegistry;
     private int $maxIterations = 5;
     private ?string $sessionId = null;
+    private array $executedSteps = [];
+    private array $seenResults = [];
 
     public function __construct(
         Planner $planner,
@@ -43,9 +45,7 @@ class LoopController
 
     private function getResponse(AnonymousAgent $agent, string $message): string
     {
-        $response = $agent->prompt($message);
-
-        return (string) $response;
+        return (string) $agent->prompt($message);
     }
 
     /**
@@ -55,97 +55,33 @@ class LoopController
     public function execute(string $userMessage): string
     {
         $this->sessionId = Str::uuid();
+        $this->executedSteps = [];
+        $this->seenResults = [];
+
         Log::info("LoopController: Начало выполнения [{$this->sessionId}]", ['message' => $userMessage]);
 
-        // 1. Генерируем начальный план
         $plan = $this->planner->generate($userMessage);
         PlanCreated::dispatch($plan, ['session_id' => $this->sessionId]);
 
-        $executedSteps = [];
+        $stepsToExecute = $plan->steps->all();
         $currentIteration = 0;
 
-        // Очередь шагов к выполнению
-        $stepsToExecute = $plan->steps->all();
-
         while (!empty($stepsToExecute) && $currentIteration < $this->maxIterations) {
-            // Пытаемся взять пачку независимых шагов (для MVP - просто берем все текущие,
-            // но в реальности нужно проверять зависимости).
-            // Здесь мы реализуем простой batch: если в очереди больше одного шага,
-            // мы можем выполнить их параллельно (в PHP это эмулируется или делается через Promise/Guzzle).
-            // Для упрощения и соответствия "batch planning", будем выполнять текущую очередь шагов,
-            // пока не потребуется рефлексия.
+            $batchSteps = $this->extractNextBatch($stepsToExecute);
+            $batchResults = $this->executeBatch($batchSteps, $currentIteration);
 
-            $batchResults = [];
-            $batchSteps = [];
-
-            // Для простоты: выполняем все текущие шаги плана как один батч,
-            // затем делаем одну рефлексию по итогу всей пачки.
-            while (!empty($stepsToExecute) && count($batchSteps) < 3) {
-                $batchSteps[] = array_shift($stepsToExecute);
+            // Если executeBatch вернул строку, значит цикл прерван принудительно
+            if (is_string($batchResults)) {
+                return $batchResults;
             }
 
-            foreach ($batchSteps as $step) {
-                $currentIteration++;
-                Log::info("LoopController: Выполнение шага {$currentIteration} в батче", [
-                    'tool' => $step->tool,
-                    'parameters' => $step->parameters
-                ]);
-
-                $startTime = microtime(true);
-                ToolCalled::dispatch($step, ['session_id' => $this->sessionId]);
-
-                $toolResult = $this->executeStep($step);
-                $latency = microtime(true) - $startTime;
-
-                ToolResultReceived::dispatch($step, $toolResult, ['session_id' => $this->sessionId]);
-
-                $this->logStep([
-                    'thought' => $step->description ?? "Выполнение инструмента {$step->tool}",
-                    'action' => $step->tool,
-                    'input' => $step->parameters,
-                    'output' => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
-                    'latency' => $latency
-                ]);
-
-                $executedSteps[] = [
-                    'step' => $step,
-                    'result' => $toolResult
-                ];
-                $batchResults[] = [
-                    'step' => $step,
-                    'result' => $toolResult
-                ];
-            }
-
-            // 3. Рефлексия по последнему шагу батча (или агрегированная)
-            // В MVP версии рефлектор принимает один шаг. Передадим последний.
-            $lastBatchItem = end($batchResults);
-            $startTime = microtime(true);
-            $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
-            $latency = microtime(true) - $startTime;
-
-            ReflectionGenerated::dispatch(
-                $reflection['decision'],
-                $reflection['thought'],
-                ['session_id' => $this->sessionId]
-            );
-
-            $this->logStep([
-                'agent_name' => 'Reflector',
-                'thought' => $reflection['thought'],
-                'action' => $reflection['decision'],
-                'output' => json_encode($reflection, JSON_UNESCAPED_UNICODE),
-                'latency' => $latency
-            ]);
-
-            Log::debug("LoopController: Рефлексия после батча", $reflection);
+            $reflection = $this->reflectOnBatch($userMessage, $batchResults);
 
             if ($reflection['decision'] === 'finish') {
                 Log::info("LoopController: Рефлектор решил завершить.");
-                return $this->formatFinalResponse($userMessage, $executedSteps, $reflection['thought']);
+                return $this->formatFinalResponse($userMessage, $this->executedSteps, $reflection['thought']);
             }
 
-            // 4. Если нужно продолжить, проверяем, предложил ли рефлектор новый шаг
             if ($reflection['decision'] === 'continue' && isset($reflection['next_suggestion'])) {
                 $nextStep = $this->parseNextStep($reflection['next_suggestion']);
                 if ($nextStep) {
@@ -153,17 +89,77 @@ class LoopController
                     Log::info("LoopController: Добавлен новый шаг из рефлексии", ['tool' => $nextStep->tool]);
                 }
             }
-            StepCompleted::dispatch(['batch_count' => count($batchSteps)], ['session_id' => $this->sessionId]);
+
+            foreach ($batchResults as $resultData) {
+                StepCompleted::dispatch(
+                    $resultData['step'],
+                    $resultData['result'],
+                    ['session_id' => $this->sessionId]
+                );
+            }
         }
 
         if ($currentIteration >= $this->maxIterations) {
             Log::warning("LoopController: Достигнут лимит итераций.");
         }
 
-        return $this->formatFinalResponse($userMessage, $executedSteps, "Выполнено {$currentIteration} шагов.");
+        return $this->formatFinalResponse($userMessage, $this->executedSteps, "Выполнено {$currentIteration} шагов.");
     }
 
-    private function executeStep(Step $step): mixed
+    private function extractNextBatch(array &$stepsToExecute, int $maxBatchSize = 3): array
+    {
+        $batch = [];
+        while (!empty($stepsToExecute) && count($batch) < $maxBatchSize) {
+            $batch[] = array_shift($stepsToExecute);
+        }
+        return $batch;
+    }
+
+    private function executeBatch(array $batchSteps, int &$currentIteration): array|string
+    {
+        $batchResults = [];
+
+        foreach ($batchSteps as $step) {
+            $currentIteration++;
+
+            Log::info("LoopController: Выполнение шага {$currentIteration}", [
+                'tool' => $step->tool,
+                'parameters' => $step->parameters
+            ]);
+
+            $startTime = microtime(true);
+            ToolCalled::dispatch($step, ['session_id' => $this->sessionId]);
+
+            $toolResult = $this->runTool($step);
+            $latency = microtime(true) - $startTime;
+
+            ToolResultReceived::dispatch($step, $toolResult, ['session_id' => $this->sessionId]);
+
+            if ($this->detectLoop($step, $toolResult)) {
+                return $this->formatFinalResponse(
+                    "Loop detected",
+                    $this->executedSteps,
+                    "Циклическое повторение действий. Возможно, база данных пуста или нет подходящей информации."
+                );
+            }
+
+            $this->logStep([
+                'thought' => $step->description ?? "Выполнение инструмента {$step->tool}",
+                'action' => $step->tool,
+                'input' => $step->parameters,
+                'output' => $this->formatOutput($toolResult),
+                'latency' => $latency
+            ]);
+
+            $stepData = ['step' => $step, 'result' => $toolResult];
+            $this->executedSteps[] = $stepData;
+            $batchResults[] = $stepData;
+        }
+
+        return $batchResults;
+    }
+
+    private function runTool(Step $step): mixed
     {
         $tool = $this->toolRegistry->get($step->tool);
         if (!$tool) {
@@ -172,15 +168,54 @@ class LoopController
         }
 
         try {
-            $request = new Request($step->parameters);
-            return $tool->handle($request);
+            return $tool->handle(new Request($step->parameters));
         } catch (\Exception $e) {
-            Log::error("LoopController: Ошибка при выполнении инструмента", [
-                'tool' => $step->tool,
-                'error' => $e->getMessage()
-            ]);
+            Log::error("LoopController: Ошибка инструмента", ['tool' => $step->tool, 'error' => $e->getMessage()]);
             return "Ошибка при выполнении: " . $e->getMessage();
         }
+    }
+
+    private function detectLoop(Step $step, mixed $result): bool
+    {
+        $hash = md5($step->tool . json_encode($step->parameters) . $this->formatOutput($result));
+        $this->seenResults[$hash] = ($this->seenResults[$hash] ?? 0) + 1;
+
+        if ($this->seenResults[$hash] >= 2) {
+            Log::error("LoopController: Обнаружено циклическое повторение.");
+            return true;
+        }
+
+        return false;
+    }
+
+    private function reflectOnBatch(string $userMessage, array $batchResults): array
+    {
+        $lastBatchItem = end($batchResults);
+        $startTime = microtime(true);
+
+        $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
+        $latency = microtime(true) - $startTime;
+
+        ReflectionGenerated::dispatch(
+            $reflection['decision'],
+            $reflection['thought'],
+            ['session_id' => $this->sessionId]
+        );
+
+        $this->logStep([
+            'agent_name' => 'Reflector',
+            'thought' => $reflection['thought'],
+            'action' => $reflection['decision'],
+            'output' => json_encode($reflection, JSON_UNESCAPED_UNICODE),
+            'latency' => $latency
+        ]);
+
+        return $reflection;
+    }
+
+    private function formatOutput(mixed $result): string
+    {
+        return is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE);
     }
 
     private function parseNextStep(string $suggestion): ?Step
@@ -196,7 +231,7 @@ class LoopController
                 'agent_name' => 'LoopController',
             ], $data));
         } catch (\Exception $e) {
-            Log::error("Ошибка при сохранении лога в БД: " . $e->getMessage());
+            Log::error("LoopController: Ошибка логирования: " . $e->getMessage());
         }
     }
 
@@ -204,14 +239,15 @@ class LoopController
     {
         Log::info("LoopController: Формирование финального ответа");
 
-        $history = "";
-        foreach ($executedSteps as $i => $item) {
+        $history = collect($executedSteps)->map(function ($item, $index) {
             /** @var Step $step */
             $step = $item['step'];
-            $result = is_string($item['result']) ? $item['result'] : json_encode($item['result'], JSON_UNESCAPED_UNICODE);
-            $history .= ($i + 1) . ". Инструмент [{$step->tool}]: " . ($step->description ?? '') . "\n";
-            $history .= "   Результат: " . mb_substr($result, 0, 500) . (mb_strlen($result) > 500 ? "..." : "") . "\n\n";
-        }
+            $result = $this->formatOutput($item['result']);
+            $shortResult = mb_substr($result, 0, 500) . (mb_strlen($result) > 500 ? "..." : "");
+
+            return ($index + 1) . ". Инструмент [{$step->tool}]: " . ($step->description ?? '') . "\n" .
+                   "   Результат: " . $shortResult;
+        })->implode("\n\n");
 
         $prompt = <<<PROMPT
 Ты — ИИ-ответчик (Responder Agent). Твоя задача — составить финальный, человекопонятный ответ пользователю на основе истории выполненных действий и заключительных мыслей.
@@ -226,12 +262,16 @@ class LoopController
 PROMPT;
 
         try {
-            $agent = $this->createAgent($prompt);
-            $text = $this->getResponse($agent, "Сформулируй финальный ответ.");
-            return $text;
+            $response = $this->getResponse($this->createAgent($prompt), "Сформулируй финальный ответ.");
+            Log::info("LoopController: Финальный ответ получен");
+            return $response;
         } catch (\Exception $e) {
             Log::error("LoopController: Ошибка при формировании ответа", ['error' => $e->getMessage()]);
-            return "Финальный анализ: {$finalThought}\n\nИстория:\n{$history}";
+            $errorMsg = "Не удалось сгенерировать ответ из-за таймаута или ошибки LLM.";
+            if (strpos($e->getMessage(), 'timeout') !== false) {
+                $errorMsg = "Превышено время ожидания ответа от ИИ (таймаут). Пожалуйста, попробуйте более простой запрос.";
+            }
+            return "### Анализ выполнен\n{$finalThought}\n\n**Внимание:** {$errorMsg}\n\n**История действий:**\n" . $history;
         }
     }
 }

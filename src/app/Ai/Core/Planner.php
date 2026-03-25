@@ -70,8 +70,6 @@ PROMPT;
             $agent = $this->createAgent($this->getInstructions());
             $text = $this->getResponse($agent, $message);
 
-            Log::debug("Планировщик: Ответ LLM", ['text' => $text]);
-
             $plan = $this->parsePlan($text);
 
             // Кешируем на 1 час
@@ -99,8 +97,6 @@ PROMPT;
             $agent = $this->createAgent($this->getInstructions());
             $text = $this->getResponse($agent, "Сгенерируй ОДИН шаг для выполнения следующего предложения: " . $suggestion);
 
-            Log::debug("Планировщик: Ответ LLM для шага", ['text' => $text]);
-
             $plan = $this->parsePlan($text);
             $steps = $plan->steps->all();
 
@@ -116,6 +112,8 @@ PROMPT;
 
     private function parsePlan(string $text): Plan
     {
+        Log::debug("Планировщик: Ответ LLM", ['text' => $text]);
+
         // Извлекаем JSON из текста (на случай если LLM добавила пояснения или ```json)
         $jsonStart = strpos($text, '{');
         $jsonEnd = strrpos($text, '}');
@@ -126,6 +124,12 @@ PROMPT;
         }
 
         $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+
+        // Очистка от markdown блоков и лишних символов
+        $jsonContent = preg_replace('/^```json\s*/i', '', $jsonContent);
+        $jsonContent = preg_replace('/```$/', '', $jsonContent);
+        $jsonContent = trim($jsonContent);
+
         $data = json_decode($jsonContent, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {

@@ -9,7 +9,7 @@ use Laravel\Ai\Attributes\UseSmartestModel;
 
 #[UseSmartestModel]
 #[MaxTokens(4000)]
-#[Timeout(60)]
+#[Timeout(300)]
 class SmartAnonymousAgent extends AnonymousAgent
 {
 }

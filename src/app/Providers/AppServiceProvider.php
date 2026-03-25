@@ -58,12 +58,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Event::listen(UserMessageReceived::class, PlanListener::class);
-        Event::listen(PlanCreated::class, ProcessPlanListener::class);
-        Event::listen(ToolCalled::class, ExecuteToolListener::class);
-        Event::listen(ToolResultReceived::class, ReflectListener::class);
-        Event::listen(ReflectionGenerated::class, LoopListener::class);
-
         $this->commands([
             TestAiAgent::class,
         ]);

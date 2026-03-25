@@ -41,6 +41,10 @@ class Reflector
 
 Если информации достаточно для окончательного ответа — выбирай "finish".
 Если нужно больше данных или возникла ошибка, которую можно исправить другим запросом — выбирай "continue".
+
+ОСОБЫЕ ПРАВИЛА:
+1. Если результат инструмента "Knowledge base is empty", то продолжать поиск через "vector_search" БЕСПОЛЕЗНО. В этом случае выбирай "finish" и объясни в мыслях, что данных нет.
+2. Не предлагай одни и те же действия повторно, если результат не изменился.
 PROMPT;
     }
 
@@ -64,7 +68,7 @@ PROMPT;
 
             Log::debug("Reflector: Ответ LLM", ['text' => $text]);
 
-            // Извлекаем JSON
+            // Извлекаем JSON из текста (на случай если LLM добавила пояснения или ```json)
             $jsonStart = strpos($text, '{');
             $jsonEnd = strrpos($text, '}');
 
@@ -74,10 +78,16 @@ PROMPT;
             }
 
             $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+
+            // Очистка от markdown блоков и лишних символов
+            $jsonContent = preg_replace('/^```json\s*/i', '', $jsonContent);
+            $jsonContent = preg_replace('/```$/', '', $jsonContent);
+            $jsonContent = trim($jsonContent);
+
             $data = json_decode($jsonContent, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error("Reflector: Ошибка парсинга JSON", ['error' => json_last_error_msg()]);
+                Log::error("Reflector: Ошибка парсинга JSON", ['error' => json_last_error_msg(), 'content' => $jsonContent]);
                 return $this->fallbackDecision("Ошибка структуры JSON.");
             }
 

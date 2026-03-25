@@ -3,6 +3,7 @@
 namespace App\Ai\Tools;
 
 use App\Ai\Memory\VectorStore;
+use App\Models\Document;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -30,10 +31,14 @@ class VectorSearchTool implements Tool
         $query = $request->string('query');
         $limit = $request->integer('limit', 3);
 
+        if (Document::count() === 0) {
+            return "Knowledge base is empty. No documents have been indexed yet.";
+        }
+
         $results = $this->vectorStore->search($query, $limit);
 
         if ($results->isEmpty()) {
-            return "No relevant information found.";
+            return "No relevant information found for the query: '{$query}'.";
         }
 
         return $results->map(function ($doc) {

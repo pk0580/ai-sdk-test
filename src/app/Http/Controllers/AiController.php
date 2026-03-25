@@ -71,7 +71,11 @@ class AiController extends Controller
             });
 
             Event::listen(ReflectionGenerated::class, function ($event) use ($sendEvent) {
-                $sendEvent('reflection', $event->reflection);
+                $sendEvent('reflection', [
+                    'decision' => $event->decision,
+                    'thought' => $event->thought,
+                    'context' => $event->context
+                ]);
             });
 
             // Запускаем процесс
