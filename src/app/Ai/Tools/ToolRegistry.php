@@ -39,27 +39,20 @@ class ToolRegistry
         foreach ($this->tools as $name => $tool) {
             $schema = $tool->schema($jsonSchema);
 
-            $parameters = [
-                'type' => 'object',
-                'properties' => [],
-                'required' => [],
-            ];
+            $properties = [];
 
             foreach ($schema as $paramName => $type) {
-                $parameters['properties'][$paramName] = $type->toArray();
-
-                // Используем Reflection, так как свойство $required защищено и нет публичного метода isRequired
-                $reflection = new \ReflectionProperty($type, 'required');
-                $reflection->setAccessible(true);
-                if ($reflection->getValue($type) === true) {
-                    $parameters['required'][] = $paramName;
-                }
+                $properties[$paramName] = $type->toArray();
             }
 
             $definitions[$name] = [
                 'name' => $name,
                 'description' => (string) $tool->description(),
-                'parameters' => $parameters,
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => $properties,
+                    // без required
+                ],
             ];
         }
 
