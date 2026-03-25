@@ -6,8 +6,10 @@ use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
 use App\Ai\Agents\SmartAnonymousAgent;
+use App\Models\AiLog;
 use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Tools\Request;
+use Illuminate\Support\Str;
 
 class LoopController
 {
@@ -15,6 +17,7 @@ class LoopController
     private Reflector $reflector;
     private ToolRegistry $toolRegistry;
     private int $maxIterations = 5;
+    private ?string $sessionId = null;
 
     public function __construct(
         Planner $planner,
@@ -46,7 +49,8 @@ class LoopController
      */
     public function execute(string $userMessage): string
     {
-        Log::info("LoopController: Начало выполнения", ['message' => $userMessage]);
+        $this->sessionId = Str::uuid();
+        Log::info("LoopController: Начало выполнения [{$this->sessionId}]", ['message' => $userMessage]);
 
         // 1. Генерируем начальный план
         $plan = $this->planner->generate($userMessage);
@@ -80,7 +84,18 @@ class LoopController
                     'parameters' => $step->parameters
                 ]);
 
+                $startTime = microtime(true);
                 $toolResult = $this->executeStep($step);
+                $latency = microtime(true) - $startTime;
+
+                $this->logStep([
+                    'thought' => $step->description ?? "Выполнение инструмента {$step->tool}",
+                    'action' => $step->tool,
+                    'input' => $step->parameters,
+                    'output' => is_string($toolResult) ? $toolResult : json_encode($toolResult, JSON_UNESCAPED_UNICODE),
+                    'latency' => $latency
+                ]);
+
                 $executedSteps[] = [
                     'step' => $step,
                     'result' => $toolResult
@@ -94,7 +109,17 @@ class LoopController
             // 3. Рефлексия по последнему шагу батча (или агрегированная)
             // В MVP версии рефлектор принимает один шаг. Передадим последний.
             $lastBatchItem = end($batchResults);
+            $startTime = microtime(true);
             $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
+            $latency = microtime(true) - $startTime;
+
+            $this->logStep([
+                'agent_name' => 'Reflector',
+                'thought' => $reflection['thought'],
+                'action' => $reflection['decision'],
+                'output' => json_encode($reflection, JSON_UNESCAPED_UNICODE),
+                'latency' => $latency
+            ]);
 
             Log::debug("LoopController: Рефлексия после батча", $reflection);
 
@@ -143,6 +168,18 @@ class LoopController
     private function parseNextStep(string $suggestion): ?Step
     {
         return $this->planner->parseStep($suggestion);
+    }
+
+    private function logStep(array $data): void
+    {
+        try {
+            AiLog::create(array_merge([
+                'session_id' => $this->sessionId,
+                'agent_name' => 'LoopController',
+            ], $data));
+        } catch (\Exception $e) {
+            Log::error("Ошибка при сохранении лога в БД: " . $e->getMessage());
+        }
     }
 
     private function formatFinalResponse(string $userMessage, array $executedSteps, string $finalThought): string

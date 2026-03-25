@@ -270,7 +270,7 @@ Input
 Output
 ```
 
-## Храним в БД
+## Храним в БД ✓
 
 ---
 
@@ -286,6 +286,7 @@ Output
 8. Multi-agent ✓
 9. Optimization ✓
 10. Agent Limits (MaxSteps, MaxTokens, Timeout) ✓
+11. Debugging (DB Logs, Latency) ✓
 
 ---
 
