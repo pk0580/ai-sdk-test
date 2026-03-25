@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Ai\Agents;
+
+use Illuminate\Support\Facades\Log;
+
+class SummaryAgent extends BaseAgent
+{
+    public function __construct()
+    {
+        $prompt = "Ты — Summary Agent. Твоя задача — свести все собранные данные в краткий, понятный и структурированный отчет.
+        Выделяй ключевые моменты и рекомендации.";
+
+        parent::__construct('SummaryAgent', $prompt);
+    }
+
+    public function execute(string $task): string
+    {
+        Log::info("SummaryAgent: Создание саммари", ['task_input' => $task]);
+
+        // SummaryAgent может просто отвечать напрямую, так как его задача - синтез
+        return $this->ask("Создай резюме на основе следующих данных: " . $task);
+    }
+}

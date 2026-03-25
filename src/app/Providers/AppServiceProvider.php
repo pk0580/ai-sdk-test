@@ -15,9 +15,11 @@ use App\Ai\Listeners\ReflectListener;
 use App\Ai\Listeners\LoopListener;
 use App\Ai\Listeners\ProcessPlanListener;
 use App\Console\Commands\TestAiAgent;
-use App\Ai\Tools\ToolRegistry;
+use App\Ai\Core\LoopController;
+use App\Ai\Agents\ResearchAgent;
 use App\Ai\Tools\CalculatorTool;
 use App\Ai\Tools\VectorSearchTool;
+use App\Ai\Tools\ToolRegistry;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +34,13 @@ class AppServiceProvider extends ServiceProvider
             $registry->register('vector_search', $this->app->make(VectorSearchTool::class));
 
             return $registry;
+        });
+
+        $this->app->bind(ResearchAgent::class, function ($app) {
+            return new ResearchAgent(
+                $app->make(LoopController::class),
+                $app->make(ToolRegistry::class)
+            );
         });
     }
 
