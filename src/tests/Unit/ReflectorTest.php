@@ -27,17 +27,9 @@ class ReflectorTest extends TestCase
             'next_suggestion' => null
         ]);
 
-        $mockResponse = new AgentResponse(
-            'inv_123',
-            $jsonResponse,
-            new Usage(),
-            new Meta()
-        );
-
-        $mockAgent = Mockery::mock('overload:Laravel\Ai\AnonymousAgent');
-        $mockAgent->shouldReceive('prompt')
-            ->once()
-            ->andReturn($mockResponse);
+        \Laravel\Ai\AnonymousAgent::fake([
+            $jsonResponse
+        ]);
 
         $reflector = new Reflector();
         $step = new Step('calculator', ['expression' => '25 * 17'], 'Calc');
@@ -52,17 +44,9 @@ class ReflectorTest extends TestCase
 
     public function test_reflector_handles_invalid_json()
     {
-        $mockResponse = new AgentResponse(
-            'inv_123',
-            'Invalid JSON',
-            new Usage(),
-            new Meta()
-        );
-
-        $mockAgent = Mockery::mock('overload:Laravel\Ai\AnonymousAgent');
-        $mockAgent->shouldReceive('prompt')
-            ->once()
-            ->andReturn($mockResponse);
+        \Laravel\Ai\AnonymousAgent::fake([
+            'Invalid JSON'
+        ]);
 
         $reflector = new Reflector();
         $step = new Step('test', [], 'test');

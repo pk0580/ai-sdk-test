@@ -281,7 +281,7 @@ Output
 3. Calculator tool
 4. Vector search tool
 5. Reflection ✓
-6. Loop
+6. Loop ✓
 7. Multi-agent
 
 ---

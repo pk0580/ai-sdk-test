@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Laravel\Ai\AnonymousAgent;
 use Tests\TestCase;
 use App\Ai\Core\Planner;
 use App\Ai\DTO\Plan;
@@ -39,18 +40,9 @@ class PlannerTest extends TestCase
             ]
         ]);
 
-        $mockResponse = new AgentResponse(
-            'inv_123',
-            $jsonResponse,
-            new Usage(),
-            new Meta()
-        );
-
-        // Так как agent() создает new AnonymousAgent, мы всё равно используем overload.
-        $mockAgent = Mockery::mock('overload:Laravel\Ai\AnonymousAgent');
-        $mockAgent->shouldReceive('prompt')
-            ->once()
-            ->andReturn($mockResponse);
+        AnonymousAgent::fake([
+            $jsonResponse
+        ]);
 
         $planner = $this->getPlanner();
         $plan = $planner->generate('How much is 25 * 17?');
@@ -63,17 +55,9 @@ class PlannerTest extends TestCase
 
     public function test_planner_returns_fallback_on_invalid_json()
     {
-        $mockResponse = new AgentResponse(
-            'inv_123',
-            'Invalid JSON here',
-            new Usage(),
-            new Meta()
-        );
-
-        $mockAgent = Mockery::mock('overload:' . AnonymousAgent::class);
-        $mockAgent->shouldReceive('prompt')
-            ->once()
-            ->andReturn($mockResponse);
+        AnonymousAgent::fake([
+            'Invalid JSON here'
+        ]);
 
         $planner = $this->getPlanner();
         $plan = $planner->generate('test');
@@ -84,10 +68,13 @@ class PlannerTest extends TestCase
 
     public function test_planner_returns_fallback_on_exception()
     {
-        $mockAgent = Mockery::mock('overload:' . AnonymousAgent::class);
-        $mockAgent->shouldReceive('prompt')
-            ->once()
-            ->andThrow(new \Exception('AI Error'));
+        // Для симуляции ошибки (Exception) в AnonymousAgent::fake() можно передать Closure,
+        // который выбрасывает исключение, но SDK обычно перехватывает его внутри prompt().
+        // Однако в нашем случае Planner перехватывает любое исключение.
+
+        AnonymousAgent::fake(function() {
+            throw new \Exception('AI Error');
+        });
 
         $planner = $this->getPlanner();
         $plan = $planner->generate('test');
