@@ -23,24 +23,52 @@ class VectorStore
         $paragraphs = preg_split("/\n\s*\n/", $content);
         $chunks = [];
 
-        for ($i = 0; $i < count($paragraphs); $i++) {
-            $chunk = $paragraphs[$i];
+        $maxChunkSize = 1000; // Character count (approximate tokens)
+        $overlapSize = 200;
 
-            // Add overlap from previous paragraph if it exists
-            if ($i > 0) {
-                $prevParagraph = $paragraphs[$i - 1];
-                $overlap = mb_substr($prevParagraph, -mb_strlen($prevParagraph) / 4); // 25% overlap
-                $chunk = $overlap . "\n" . $chunk;
+        foreach ($paragraphs as $paragraph) {
+            $paragraph = trim($paragraph);
+            if (empty($paragraph)) {
+                continue;
             }
 
-            $chunks[] = $chunk;
+            if (mb_strlen($paragraph) <= $maxChunkSize) {
+                $chunks[] = $paragraph;
+            } else {
+                // Split large paragraph into smaller chunks with overlap
+                $start = 0;
+                while ($start < mb_strlen($paragraph)) {
+                    $chunk = mb_substr($paragraph, $start, $maxChunkSize);
+                    $chunks[] = $chunk;
+                    $start += ($maxChunkSize - $overlapSize);
+
+                    // Avoid tiny last chunk
+                    if (mb_strlen($paragraph) - $start < $overlapSize) {
+                        break;
+                    }
+                }
+            }
         }
 
-        $response = Ai::embeddings($chunks);
+        // Add overlap between paragraphs (simplified: the loop above already handles internal paragraph overlap)
+        // To maintain previous behavior of overlapping between DIFFERENT paragraphs:
+        $finalChunks = [];
+        for ($i = 0; $i < count($chunks); $i++) {
+            $currentChunk = $chunks[$i];
+            if ($i > 0) {
+                $prevChunk = $chunks[$i - 1];
+                $overlap = mb_substr($prevChunk, -min(mb_strlen($prevChunk), $overlapSize));
+                $currentChunk = $overlap . "\n" . $currentChunk;
+            }
+            $finalChunks[] = $currentChunk;
+        }
+
+        // Increase timeout for large batches to avoid Ollama cURL 28 timeouts
+        $response = Ai::embeddings($finalChunks, null, null, 300);
         $embeddings = $response->embeddings; // array<int, array<float>>
         $storedDocuments = new Collection();
 
-        foreach ($chunks as $index => $chunk) {
+        foreach ($finalChunks as $index => $chunk) {
             $storedDocuments->add(Document::create([
                 'content' => $chunk,
                 'metadata' => array_merge($metadata, [
@@ -59,7 +87,8 @@ class VectorStore
      */
     public function search(string $query, int $limit = 5, int $perDocumentLimit = 2): Collection
     {
-        $embedding = Ai::embeddings([$query])->first();
+        // Increase timeout for single embedding generation as well
+        $embedding = Ai::embeddings([$query], null, null, 300)->first();
         $vector = new Vector($embedding);
 
         $results = Document::query()
