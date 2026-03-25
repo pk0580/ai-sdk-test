@@ -17,6 +17,7 @@ use App\Ai\Listeners\ProcessPlanListener;
 use App\Console\Commands\TestAiAgent;
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Tools\CalculatorTool;
+use App\Ai\Tools\VectorSearchTool;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ToolRegistry::class, function () {
             $registry = new ToolRegistry();
             $registry->register('calculator', new CalculatorTool());
+            $registry->register('vector_search', $this->app->make(VectorSearchTool::class));
 
             return $registry;
         });

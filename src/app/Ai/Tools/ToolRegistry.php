@@ -40,9 +40,16 @@ class ToolRegistry
             $schema = $tool->schema($jsonSchema);
 
             $properties = [];
+            $required = [];
 
             foreach ($schema as $paramName => $type) {
                 $properties[$paramName] = $type->toArray();
+
+                // Извлекаем защищенное свойство $required через замыкание (как это делает Serializer)
+                $isRequired = (fn () => $this->required)->call($type);
+                if ($isRequired === true) {
+                    $required[] = $paramName;
+                }
             }
 
             $definitions[$name] = [
@@ -51,7 +58,7 @@ class ToolRegistry
                 'parameters' => [
                     'type' => 'object',
                     'properties' => $properties,
-                    // без required
+                    'required' => $required,
                 ],
             ];
         }

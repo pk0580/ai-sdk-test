@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Ai\Tools;
+
+use App\Ai\Memory\VectorStore;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Tools\Request;
+use Stringable;
+
+class VectorSearchTool implements Tool
+{
+    public function __construct(
+        protected VectorStore $vectorStore
+    ) {}
+
+    /**
+     * Get the description of the tool's purpose.
+     */
+    public function description(): Stringable|string
+    {
+        return 'Searches the knowledge base for relevant information about a specific query.';
+    }
+
+    /**
+     * Execute the tool.
+     */
+    public function handle(Request $request): Stringable|string
+    {
+        $query = $request->string('query');
+        $limit = $request->integer('limit', 3);
+
+        $results = $this->vectorStore->search($query, $limit);
+
+        if ($results->isEmpty()) {
+            return "No relevant information found.";
+        }
+
+        return $results->map(function ($doc) {
+            return "--- DOCUMENT ---\n" . $doc->content;
+        })->implode("\n\n");
+    }
+
+    /**
+     * Get the tool's schema definition.
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'query' => $schema->string()
+                ->description('The search query to find relevant information.')
+                ->required(),
+            'limit' => $schema->integer()
+                ->description('Number of results to return (default: 3).'),
+        ];
+    }
+}

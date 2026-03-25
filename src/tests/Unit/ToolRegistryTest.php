@@ -44,6 +44,25 @@ class ToolRegistryTest extends TestCase
         $this->assertContains('expression', $definitions['calculator']['parameters']['required']);
     }
 
+    public function test_can_get_vector_search_tool_definition()
+    {
+        $registry = new ToolRegistry();
+        $mockStore = $this->createMock(\App\Ai\Memory\VectorStore::class);
+        $registry->register('vector_search', new \App\Ai\Tools\VectorSearchTool($mockStore));
+
+        $definitions = $registry->getToolsDefinitions();
+
+        $this->assertArrayHasKey('vector_search', $definitions);
+        $this->assertEquals('Searches the knowledge base for relevant information about a specific query.', $definitions['vector_search']['description']);
+
+        $params = $definitions['vector_search']['parameters'];
+        $this->assertArrayHasKey('query', $params['properties']);
+        $this->assertArrayHasKey('limit', $params['properties']);
+
+        $this->assertContains('query', $params['required']);
+        $this->assertNotContains('limit', $params['required']);
+    }
+
     public function test_calculator_tool_execution()
     {
         $tool = new CalculatorTool();
