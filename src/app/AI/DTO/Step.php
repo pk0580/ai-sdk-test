@@ -2,7 +2,7 @@
 
 namespace App\AI\DTO;
 
-class Step
+class Step implements DTOInterface
 {
     public function __construct(
         public string $tool,

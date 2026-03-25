@@ -10,7 +10,7 @@ class ExecuteToolListener
 {
     public function handle(ToolCalled $event): void
     {
-        Log::info("AI: Executing tool...", ['tool' => $event->step->tool]);
+        Log::info("ИИ: Выполнение инструмента...", ['tool' => $event->step->tool]);
 
         // Логика вызова инструмента будет в Шаге 3
         // Пока просто возвращаем заглушку

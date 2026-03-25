@@ -12,14 +12,14 @@ class ProcessPlanListener
     {
         $plan = $event->plan;
 
-        Log::info("AI: Plan created, total steps: " . $plan->steps->count());
+        Log::info("ИИ: План создан, всего шагов: " . $plan->steps->count());
 
         if ($plan->steps->isNotEmpty()) {
             $firstStep = $plan->steps->first();
-            Log::info("AI: Starting first step: {$firstStep->tool}");
+            Log::info("ИИ: Запуск первого шага: {$firstStep->tool}");
             ToolCalled::dispatch($firstStep, $event->context);
         } else {
-            Log::warning("AI: Plan is empty.");
+            Log::warning("ИИ: План пуст.");
         }
     }
 }

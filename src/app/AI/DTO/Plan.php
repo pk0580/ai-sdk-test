@@ -4,7 +4,7 @@ namespace App\AI\DTO;
 
 use Illuminate\Support\Collection;
 
-class Plan
+class Plan implements DTOInterface
 {
     /** @var Collection<int, Step> */
     public Collection $steps;
@@ -24,7 +24,7 @@ class Plan
     public function toArray(): array
     {
         return [
-            'steps' => $this->steps->map->toArray()->toArray(),
+            'steps' => $this->steps->map(fn(Step $step) => $step->toArray())->toArray(),
         ];
     }
 }

@@ -10,11 +10,11 @@ class ReflectListener
 {
     public function handle(ToolResultReceived $event): void
     {
-        Log::info("AI: Tool result received, reflecting...", ['tool' => $event->step->tool, 'result' => $event->result]);
+        Log::info("ИИ: Получен результат работы инструмента, осмысление...", ['tool' => $event->step->tool, 'result' => $event->result]);
 
         // В реальности здесь LLM анализирует результат
         $decision = 'finish'; // Завершаем для простоты
-        $thought = "I have the result from {$event->step->tool}. I can finish now.";
+        $thought = "Я получил результат от инструмента {$event->step->tool}. Теперь я могу закончить.";
 
         ReflectionGenerated::dispatch($decision, $thought, $event->context);
     }

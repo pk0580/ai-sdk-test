@@ -10,13 +10,13 @@ class LoopListener
 {
     public function handle(ReflectionGenerated $event): void
     {
-        Log::info("AI: Loop decision: {$event->decision}", ['thought' => $event->thought]);
+        Log::info("ИИ: Решение цикла: {$event->decision}", ['thought' => $event->thought]);
 
         if ($event->decision === 'finish') {
-            Log::info("AI: Flow finished.");
+            Log::info("ИИ: Процесс завершен.");
             // Здесь можно бросить финальное событие или завершить процесс
         } else {
-            Log::info("AI: Should continue to next step (not implemented yet).");
+            Log::info("ИИ: Нужно перейти к следующему шагу (еще не реализовано).");
             // В реализации Шага 6 LoopController будет решать, какой следующий шаг
         }
     }
