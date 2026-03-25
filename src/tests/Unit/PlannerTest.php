@@ -2,15 +2,10 @@
 
 namespace Tests\Unit;
 
-use Laravel\Ai\AnonymousAgent;
+use App\Ai\Agents\CheapAnonymousAgent;
 use Tests\TestCase;
 use App\Ai\Core\Planner;
 use App\Ai\DTO\Plan;
-use App\Ai\DTO\Step;
-use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Responses\AgentResponse;
-use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
 use Mockery;
 use App\Ai\Tools\ToolRegistry;
 
@@ -40,7 +35,7 @@ class PlannerTest extends TestCase
             ]
         ]);
 
-        AnonymousAgent::fake([
+        CheapAnonymousAgent::fake([
             $jsonResponse
         ]);
 
@@ -55,7 +50,7 @@ class PlannerTest extends TestCase
 
     public function test_planner_returns_fallback_on_invalid_json()
     {
-        AnonymousAgent::fake([
+        CheapAnonymousAgent::fake([
             'Invalid JSON here'
         ]);
 
@@ -72,7 +67,7 @@ class PlannerTest extends TestCase
         // который выбрасывает исключение, но SDK обычно перехватывает его внутри prompt().
         // Однако в нашем случае Planner перехватывает любое исключение.
 
-        AnonymousAgent::fake(function() {
+        CheapAnonymousAgent::fake(function() {
             throw new \Exception('AI Error');
         });
 

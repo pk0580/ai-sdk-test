@@ -4,9 +4,12 @@ namespace App\Ai\Agents;
 
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Core\LoopController;
-use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Attributes\MaxSteps;
+use Laravel\Ai\Attributes\Timeout;
 use Illuminate\Support\Facades\Log;
 
+#[MaxSteps(10)]
+#[Timeout(120)]
 class ResearchAgent extends BaseAgent
 {
     private LoopController $loopController;

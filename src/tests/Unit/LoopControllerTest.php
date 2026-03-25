@@ -7,7 +7,8 @@ use App\Ai\Core\LoopController;
 use App\Ai\Core\Planner;
 use App\Ai\Core\Reflector;
 use App\Ai\Tools\ToolRegistry;
-use Laravel\Ai\AnonymousAgent;
+use App\Ai\Agents\CheapAnonymousAgent;
+use App\Ai\Agents\SmartAnonymousAgent;
 use Laravel\Ai\Contracts\Tool;
 use Mockery;
 
@@ -24,8 +25,8 @@ class LoopControllerTest extends TestCase
         $mockTool->shouldReceive('schema')->andReturn([]);
         $toolRegistry->register('test_tool', $mockTool);
 
-        // 2. Настраиваем фейковые ответы для LLM (через AnonymousAgent::fake)
-        AnonymousAgent::fake([
+        // 2. Настраиваем фейковые ответы для LLM (через CheapAnonymousAgent::fake и SmartAnonymousAgent::fake)
+        CheapAnonymousAgent::fake([
             // Ответ для Planner (начальный план)
             json_encode([
                 'steps' => [
@@ -41,10 +42,13 @@ class LoopControllerTest extends TestCase
                 'decision' => 'finish',
                 'thought' => 'Information is sufficient.',
                 'next_suggestion' => null
-            ]),
+            ])
+        ]);
+
+        SmartAnonymousAgent::fake([
             // Ответ для Responder (финальный ответ)
             "Final human-friendly response."
-        ])->preventStrayPrompts();
+        ]);
 
         $planner = new Planner($toolRegistry);
         $reflector = new Reflector();
@@ -64,7 +68,7 @@ class LoopControllerTest extends TestCase
         $mockTool->shouldReceive('schema')->andReturn([]);
         $toolRegistry->register('test_tool', $mockTool);
 
-        AnonymousAgent::fake([
+        CheapAnonymousAgent::fake([
             // 1. Planner response
             json_encode([
                 'steps' => [
@@ -88,10 +92,13 @@ class LoopControllerTest extends TestCase
                 'decision' => 'finish',
                 'thought' => 'Now it is enough.',
                 'next_suggestion' => null
-            ]),
+            ])
+        ]);
+
+        SmartAnonymousAgent::fake([
             // 5. Responder response
             "Multi-step final response."
-        ])->preventStrayPrompts();
+        ]);
 
         $planner = new Planner($toolRegistry);
         $reflector = new Reflector();

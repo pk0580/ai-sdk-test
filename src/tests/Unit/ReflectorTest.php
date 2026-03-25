@@ -5,11 +5,8 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Ai\Core\Reflector;
 use App\Ai\DTO\Step;
-use Laravel\Ai\Responses\AgentResponse;
-use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
 use Mockery;
-use Laravel\Ai\AnonymousAgent;
+use App\Ai\Agents\CheapAnonymousAgent;
 
 class ReflectorTest extends TestCase
 {
@@ -27,7 +24,7 @@ class ReflectorTest extends TestCase
             'next_suggestion' => null
         ]);
 
-        \Laravel\Ai\AnonymousAgent::fake([
+        CheapAnonymousAgent::fake([
             $jsonResponse
         ]);
 
@@ -44,7 +41,7 @@ class ReflectorTest extends TestCase
 
     public function test_reflector_handles_invalid_json()
     {
-        \Laravel\Ai\AnonymousAgent::fake([
+        CheapAnonymousAgent::fake([
             'Invalid JSON'
         ]);
 

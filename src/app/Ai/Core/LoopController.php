@@ -2,10 +2,10 @@
 
 namespace App\Ai\Core;
 
-use App\Ai\DTO\Plan;
 use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
+use App\Ai\Agents\SmartAnonymousAgent;
 use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Tools\Request;
 
@@ -28,6 +28,18 @@ class LoopController
         $this->maxIterations = $maxIterations;
     }
 
+    private function createAgent(string $instructions): AnonymousAgent
+    {
+        return new SmartAnonymousAgent($instructions, [], []);
+    }
+
+    private function getResponse(AnonymousAgent $agent, string $message): string
+    {
+        $response = $agent->prompt($message);
+
+        return (string) $response;
+    }
+
     /**
      * Запускает цикл выполнения задачи.
      * Возвращает итоговый результат.
@@ -45,25 +57,46 @@ class LoopController
         $stepsToExecute = $plan->steps->all();
 
         while (!empty($stepsToExecute) && $currentIteration < $this->maxIterations) {
-            $step = array_shift($stepsToExecute);
-            $currentIteration++;
+            // Пытаемся взять пачку независимых шагов (для MVP - просто берем все текущие,
+            // но в реальности нужно проверять зависимости).
+            // Здесь мы реализуем простой batch: если в очереди больше одного шага,
+            // мы можем выполнить их параллельно (в PHP это эмулируется или делается через Promise/Guzzle).
+            // Для упрощения и соответствия "batch planning", будем выполнять текущую очередь шагов,
+            // пока не потребуется рефлексия.
 
-            Log::info("LoopController: Шаг {$currentIteration}", [
-                'tool' => $step->tool,
-                'parameters' => $step->parameters
-            ]);
+            $batchResults = [];
+            $batchSteps = [];
 
-            // 2. Выполняем инструмент
-            $toolResult = $this->executeStep($step);
-            $executedSteps[] = [
-                'step' => $step,
-                'result' => $toolResult
-            ];
+            // Для простоты: выполняем все текущие шаги плана как один батч,
+            // затем делаем одну рефлексию по итогу всей пачки.
+            while (!empty($stepsToExecute) && count($batchSteps) < 3) {
+                $batchSteps[] = array_shift($stepsToExecute);
+            }
 
-            // 3. Рефлексия (нужно ли продолжать?)
-            $reflection = $this->reflector->reflect($userMessage, $step, $toolResult);
+            foreach ($batchSteps as $step) {
+                $currentIteration++;
+                Log::info("LoopController: Выполнение шага {$currentIteration} в батче", [
+                    'tool' => $step->tool,
+                    'parameters' => $step->parameters
+                ]);
 
-            Log::debug("LoopController: Рефлексия", $reflection);
+                $toolResult = $this->executeStep($step);
+                $executedSteps[] = [
+                    'step' => $step,
+                    'result' => $toolResult
+                ];
+                $batchResults[] = [
+                    'step' => $step,
+                    'result' => $toolResult
+                ];
+            }
+
+            // 3. Рефлексия по последнему шагу батча (или агрегированная)
+            // В MVP версии рефлектор принимает один шаг. Передадим последний.
+            $lastBatchItem = end($batchResults);
+            $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
+
+            Log::debug("LoopController: Рефлексия после батча", $reflection);
 
             if ($reflection['decision'] === 'finish') {
                 Log::info("LoopController: Рефлектор решил завершить.");
@@ -138,9 +171,9 @@ class LoopController
 PROMPT;
 
         try {
-            $agent = new AnonymousAgent($prompt, [], []);
-            $response = $agent->prompt("Сформулируй финальный ответ.");
-            return (string) $response;
+            $agent = $this->createAgent($prompt);
+            $text = $this->getResponse($agent, "Сформулируй финальный ответ.");
+            return $text;
         } catch (\Exception $e) {
             Log::error("LoopController: Ошибка при формировании ответа", ['error' => $e->getMessage()]);
             return "Финальный анализ: {$finalThought}\n\nИстория:\n{$history}";

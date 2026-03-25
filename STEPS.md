@@ -283,7 +283,9 @@ Output
 5. Reflection ✓
 6. Loop ✓
 7. Responder Agent ✓
-8. Multi-agent
+8. Multi-agent ✓
+9. Optimization ✓
+10. Agent Limits (MaxSteps, MaxTokens, Timeout) ✓
 
 ---
 

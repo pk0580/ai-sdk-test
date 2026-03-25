@@ -2,15 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Ai\Agents\CheapAnonymousAgent;
+use App\Ai\Agents\SmartAnonymousAgent;
 use Tests\TestCase;
 use App\Ai\Agents\ResearchAgent;
 use App\Ai\Agents\SummaryAgent;
-use App\Ai\Core\LoopController;
 use App\Ai\Core\Supervisor;
 use Laravel\Ai\AnonymousAgent;
 use Mockery;
-
-use App\Ai\Tools\ToolRegistry;
 
 use Laravel\Ai\Ai;
 
@@ -25,15 +24,20 @@ class MultiAgentTest extends TestCase
     public function test_supervisor_chooses_single_agent()
     {
         // 1. Supervisor decision (AnonymousAgent)
-        // 2. Planner plan (AnonymousAgent inside ResearchAgent's LoopController)
-        // 3. Reflector (AnonymousAgent inside ResearchAgent's LoopController)
-        // 4. Responder Agent (AnonymousAgent inside ResearchAgent's LoopController)
         AnonymousAgent::fake([
-            ['type' => 'single', 'agent' => 'research'],
+            ['type' => 'single', 'agent' => 'research']
+        ]);
+
+        // 2. Planner plan (CheapAnonymousAgent inside ResearchAgent's LoopController)
+        CheapAnonymousAgent::fake([
             ['steps' => [
                 ['tool' => 'calculator', 'parameters' => ['expression' => '2+2'], 'description' => 'Calculate']
             ]],
-            ['decision' => 'finish', 'thought' => 'Done'],
+            ['decision' => 'finish', 'thought' => 'Done']
+        ]);
+
+        // 3. Responder Agent (SmartAnonymousAgent inside ResearchAgent's LoopController)
+        SmartAnonymousAgent::fake([
             'Final single response'
         ]);
 
@@ -48,10 +52,13 @@ class MultiAgentTest extends TestCase
 
     public function test_supervisor_runs_chain_of_agents()
     {
-        // 1. Planner (for ResearchAgent)
-        // 2. Responder Agent (for ResearchAgent)
-        AnonymousAgent::fake([
-            ['steps' => []],
+        // 1. Planner (CheapAnonymousAgent in ResearchAgent)
+        CheapAnonymousAgent::fake([
+            ['steps' => []]
+        ]);
+
+        // 2. Responder Agent (SmartAnonymousAgent in ResearchAgent)
+        SmartAnonymousAgent::fake([
             'Detailed research data'
         ]);
 

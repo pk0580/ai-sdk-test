@@ -4,6 +4,13 @@ namespace App\Ai\Agents;
 
 use Illuminate\Support\Facades\Log;
 
+use Laravel\Ai\Attributes\MaxTokens;
+use Laravel\Ai\Attributes\Timeout;
+use Laravel\Ai\Attributes\UseSmartestModel;
+
+#[UseSmartestModel]
+#[MaxTokens(2000)]
+#[Timeout(60)]
 class SummaryAgent extends BaseAgent
 {
     public function __construct()

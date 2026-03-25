@@ -4,10 +4,24 @@ namespace App\Ai\Core;
 
 use App\Ai\DTO\Step;
 use Illuminate\Support\Facades\Log;
+use App\Ai\Agents\CheapAnonymousAgent;
 use Laravel\Ai\AnonymousAgent;
+use Laravel\Ai\Ai;
 
 class Reflector
 {
+    private function createAgent(string $instructions): AnonymousAgent
+    {
+        return new CheapAnonymousAgent($instructions, [], []);
+    }
+
+    private function getResponse(AnonymousAgent $agent, string $message): string
+    {
+        $response = $agent->prompt($message);
+
+        return (string) $response;
+    }
+
     private function getInstructions(): string
     {
         return <<<PROMPT
@@ -45,9 +59,8 @@ PROMPT;
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         try {
-            $agent = new AnonymousAgent($this->getInstructions(), [], []);
-            $response = $agent->prompt($input);
-            $text = (string) $response;
+            $agent = $this->createAgent($this->getInstructions());
+            $text = $this->getResponse($agent, $input);
 
             Log::debug("Reflector: Ответ LLM", ['text' => $text]);
 

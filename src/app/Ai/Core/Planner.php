@@ -6,6 +6,8 @@ use App\Ai\DTO\Plan;
 use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use App\Ai\Agents\CheapAnonymousAgent;
 use Laravel\Ai\AnonymousAgent;
 
 class Planner
@@ -15,6 +17,18 @@ class Planner
     public function __construct(ToolRegistry $toolRegistry)
     {
         $this->toolRegistry = $toolRegistry;
+    }
+
+    private function createAgent(string $instructions): AnonymousAgent
+    {
+        return new CheapAnonymousAgent($instructions, [], []);
+    }
+
+    private function getResponse(AnonymousAgent $agent, string $message): string
+    {
+        $response = $agent->prompt($message);
+
+        return (string) $response;
     }
 
     private function getInstructions(): string
@@ -45,14 +59,25 @@ PROMPT;
     {
         Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
 
+        $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
+
+        if (Cache::has($cacheKey)) {
+            Log::info("Планировщик: Использую кешированный план");
+            return Plan::fromArray(Cache::get($cacheKey));
+        }
+
         try {
-            $agent = new AnonymousAgent($this->getInstructions(), [], []);
-            $response = $agent->prompt($message);
-            $text = (string) $response;
+            $agent = $this->createAgent($this->getInstructions());
+            $text = $this->getResponse($agent, $message);
 
             Log::debug("Планировщик: Ответ LLM", ['text' => $text]);
 
-            return $this->parsePlan($text);
+            $plan = $this->parsePlan($text);
+
+            // Кешируем на 1 час
+            Cache::put($cacheKey, $plan->toArray(), 3600);
+
+            return $plan;
 
         } catch (\Exception $e) {
             Log::error("Планировщик: Ошибка генерации плана", [
@@ -71,9 +96,8 @@ PROMPT;
         Log::info("Планировщик: Парсинг предложения в шаг", ['suggestion' => $suggestion]);
 
         try {
-            $agent = new AnonymousAgent($this->getInstructions(), [], []);
-            $response = $agent->prompt("Сгенерируй ОДИН шаг для выполнения следующего предложения: " . $suggestion);
-            $text = (string) $response;
+            $agent = $this->createAgent($this->getInstructions());
+            $text = $this->getResponse($agent, "Сгенерируй ОДИН шаг для выполнения следующего предложения: " . $suggestion);
 
             Log::debug("Планировщик: Ответ LLM для шага", ['text' => $text]);
 
