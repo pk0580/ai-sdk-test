@@ -17,7 +17,7 @@ services:
       - REDIS_HOST=redis
       - DB_CONNECTION=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=mcp_ai
+      - DB_DATABASE=ai-test
       - DB_USERNAME=user
       - DB_PASSWORD=password
     command: php artisan serve --host=0.0.0.0 --port=8000
@@ -37,7 +37,7 @@ services:
       - REDIS_HOST=redis
       - DB_CONNECTION=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=mcp_ai
+      - DB_DATABASE=ai-test
       - DB_USERNAME=user
       - DB_PASSWORD=password
 
@@ -55,7 +55,7 @@ services:
       - REDIS_HOST=redis
       - DB_CONNECTION=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=mcp_ai
+      - DB_DATABASE=ai-test
       - DB_USERNAME=user
       - DB_PASSWORD=password
 
@@ -73,14 +73,14 @@ services:
       - REDIS_HOST=redis
       - DB_CONNECTION=pgsql
       - DB_PORT=5432
-      - DB_DATABASE=mcp_ai
+      - DB_DATABASE=ai-test
       - DB_USERNAME=user
       - DB_PASSWORD=password
 
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: mcp_ai
+      POSTGRES_DB: ai-test
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     ports:

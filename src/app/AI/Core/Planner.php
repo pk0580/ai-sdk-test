@@ -5,31 +5,25 @@ namespace App\AI\Core;
 use App\AI\DTO\Plan;
 use App\AI\DTO\Step;
 use Illuminate\Support\Facades\Log;
-use Laravel\AI\Facades\AI;
+use function Laravel\Ai\{agent};
 
 class Planner
 {
-    private const SYSTEM_PROMPT = <<<PROMPT
-Вы — ИИ-планировщик. Ваша задача — разбить запрос пользователя на последовательность выполнимых шагов.
+    private const string INSTRUCTIONS = <<<PROMPT
+Ты — ИИ-планировщик. Твоя задача — разбить запрос пользователя на последовательность выполняемых шагов.
 Каждый шаг должен указывать используемый инструмент и его параметры.
 
 Доступные инструменты:
 1. calculator - используется для математических вычислений. Параметры: { "expression": "string" }
 2. vector_search - используется для поиска информации в базе знаний. Параметры: { "query": "string" }
 
-Ответ должен быть валидным JSON-объектом с массивом "steps".
-Каждый шаг в массиве "steps" должен содержать:
-- "tool": название инструмента (calculator, vector_search)
-- "parameters": объект с параметрами, специфичными для инструмента
-- "description": краткое описание того, почему этот шаг необходим
-
-Пример вывода:
+Ответ должен быть СТРОГО в формате JSON:
 {
   "steps": [
     {
-      "tool": "vector_search",
-      "parameters": { "query": "laravel scaling" },
-      "description": "Поиск информации о масштабировании Laravel"
+      "tool": "название",
+      "parameters": { ... },
+      "description": "описание"
     }
   ]
 }
@@ -40,18 +34,30 @@ PROMPT;
         Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
 
         try {
-            $response = AI::chat()
-                ->system(self::SYSTEM_PROMPT)
-                ->user($message)
-                ->json() // Просим вернуть JSON
-                ->send();
+            $response = agent(self::INSTRUCTIONS, [], [])->prompt($message);
+            $text = (string) $response;
 
-            $data = $response->json();
+            Log::debug("Планировщик: Ответ LLM", ['text' => $text]);
 
-            Log::debug("Планировщик: Ответ LLM", ['data' => $data]);
+            // Извлекаем JSON из текста (на случай если LLM добавила пояснения или ```json)
+            $jsonStart = strpos($text, '{');
+            $jsonEnd = strrpos($text, '}');
+
+            if ($jsonStart === false || $jsonEnd === false) {
+                Log::error("Планировщик: JSON не найден в ответе", ['text' => $text]);
+                return $this->fallbackPlan();
+            }
+
+            $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+            $data = json_decode($jsonContent, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error("Планировщик: Ошибка парсинга JSON", ['error' => json_last_error_msg(), 'content' => $jsonContent]);
+                return $this->fallbackPlan();
+            }
 
             if (!isset($data['steps']) || !is_array($data['steps'])) {
-                Log::error("Планировщик: Неверный формат JSON-ответа", ['response' => $data]);
+                Log::error("Планировщик: Неверная структура JSON", ['data' => $data]);
                 return $this->fallbackPlan();
             }
 

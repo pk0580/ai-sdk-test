@@ -23,6 +23,7 @@
 - [x] Шаг 2: Planner (LLM).
 - [ ] Шаг 3: Tool Registry.
 - [x] Окружение: PHP 8.4-cli в Docker.
+- [x] Тестирование: Создан `PlannerTest.php`, проверка цепочки через `ai:test`.
 
 ## Шаг 2: Planner (LLM)
 
