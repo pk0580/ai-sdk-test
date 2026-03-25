@@ -1,0 +1,91 @@
+<?php
+
+namespace App\Ai\Core;
+
+use App\Ai\DTO\Step;
+use Illuminate\Support\Facades\Log;
+use Laravel\Ai\AnonymousAgent;
+
+class Reflector
+{
+    private function getInstructions(): string
+    {
+        return <<<PROMPT
+Ты — ИИ-аналитик (Reflector). Твоя задача — проанализировать результат работы инструмента и решить, достаточно ли информации для ответа пользователю или нужно продолжать.
+
+Тебе будут предоставлены:
+1. Исходный запрос пользователя.
+2. Шаг, который был выполнен (инструмент и параметры).
+3. Результат работы инструмента.
+
+Ответ должен быть СТРОГО в формате JSON:
+{
+  "decision": "continue" | "finish",
+  "thought": "Твои размышления о результате и следующем шаге",
+  "next_suggestion": "Если нужно продолжать, что именно делать дальше?"
+}
+
+Если информации достаточно для окончательного ответа — выбирай "finish".
+Если нужно больше данных или возникла ошибка, которую можно исправить другим запросом — выбирай "continue".
+PROMPT;
+    }
+
+    public function reflect(string $userMessage, Step $step, mixed $result): array
+    {
+        Log::info("Reflector: Анализирую результат для шага", ['tool' => $step->tool]);
+
+        $input = json_encode([
+            'user_query' => $userMessage,
+            'executed_step' => [
+                'tool' => $step->tool,
+                'parameters' => $step->parameters,
+                'description' => $step->description
+            ],
+            'result' => $result
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        try {
+            $agent = new AnonymousAgent($this->getInstructions(), [], []);
+            $response = $agent->prompt($input);
+            $text = (string) $response;
+
+            Log::debug("Reflector: Ответ LLM", ['text' => $text]);
+
+            // Извлекаем JSON
+            $jsonStart = strpos($text, '{');
+            $jsonEnd = strrpos($text, '}');
+
+            if ($jsonStart === false || $jsonEnd === false) {
+                Log::error("Reflector: JSON не найден в ответе", ['text' => $text]);
+                return $this->fallbackDecision("Не удалось распарсить ответ LLM. Завершаем работу.");
+            }
+
+            $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+            $data = json_decode($jsonContent, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error("Reflector: Ошибка парсинга JSON", ['error' => json_last_error_msg()]);
+                return $this->fallbackDecision("Ошибка структуры JSON.");
+            }
+
+            return [
+                'decision' => $data['decision'] ?? 'finish',
+                'thought' => $data['thought'] ?? 'Результат получен.',
+                'next_suggestion' => $data['next_suggestion'] ?? null
+            ];
+
+        } catch (\Exception $e) {
+            Log::error("Reflector: Ошибка при вызове LLM", ['error' => $e->getMessage()]);
+            return $this->fallbackDecision("Произошла ошибка при анализе: " . $e->getMessage());
+        }
+    }
+
+    private function fallbackDecision(string $reason): array
+    {
+        return [
+            'decision' => 'finish',
+            'thought' => $reason,
+            'next_suggestion' => null
+        ];
+    }
+}
