@@ -52,29 +52,7 @@ PROMPT;
 
             Log::debug("Планировщик: Ответ LLM", ['text' => $text]);
 
-            // Извлекаем JSON из текста (на случай если LLM добавила пояснения или ```json)
-            $jsonStart = strpos($text, '{');
-            $jsonEnd = strrpos($text, '}');
-
-            if ($jsonStart === false || $jsonEnd === false) {
-                Log::error("Планировщик: JSON не найден в ответе", ['text' => $text]);
-                return $this->fallbackPlan();
-            }
-
-            $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
-            $data = json_decode($jsonContent, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error("Планировщик: Ошибка парсинга JSON", ['error' => json_last_error_msg(), 'content' => $jsonContent]);
-                return $this->fallbackPlan();
-            }
-
-            if (!isset($data['steps']) || !is_array($data['steps'])) {
-                Log::error("Планировщик: Неверная структура JSON", ['data' => $data]);
-                return $this->fallbackPlan();
-            }
-
-            return Plan::fromArray($data);
+            return $this->parsePlan($text);
 
         } catch (\Exception $e) {
             Log::error("Планировщик: Ошибка генерации плана", [
@@ -83,6 +61,60 @@ PROMPT;
             ]);
             return $this->fallbackPlan();
         }
+    }
+
+    /**
+     * Превращает текстовое предложение (suggestion) в один Step.
+     */
+    public function parseStep(string $suggestion): ?Step
+    {
+        Log::info("Планировщик: Парсинг предложения в шаг", ['suggestion' => $suggestion]);
+
+        try {
+            $agent = new AnonymousAgent($this->getInstructions(), [], []);
+            $response = $agent->prompt("Сгенерируй ОДИН шаг для выполнения следующего предложения: " . $suggestion);
+            $text = (string) $response;
+
+            Log::debug("Планировщик: Ответ LLM для шага", ['text' => $text]);
+
+            $plan = $this->parsePlan($text);
+            $steps = $plan->steps->all();
+
+            return !empty($steps) ? $steps[0] : null;
+
+        } catch (\Exception $e) {
+            Log::error("Планировщик: Ошибка парсинга предложения", [
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    private function parsePlan(string $text): Plan
+    {
+        // Извлекаем JSON из текста (на случай если LLM добавила пояснения или ```json)
+        $jsonStart = strpos($text, '{');
+        $jsonEnd = strrpos($text, '}');
+
+        if ($jsonStart === false || $jsonEnd === false) {
+            Log::error("Планировщик: JSON не найден в ответе", ['text' => $text]);
+            return $this->fallbackPlan();
+        }
+
+        $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
+        $data = json_decode($jsonContent, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error("Планировщик: Ошибка парсинга JSON", ['error' => json_last_error_msg(), 'content' => $jsonContent]);
+            return $this->fallbackPlan();
+        }
+
+        if (!isset($data['steps']) || !is_array($data['steps'])) {
+            Log::error("Планировщик: Неверная структура JSON", ['data' => $data]);
+            return $this->fallbackPlan();
+        }
+
+        return Plan::fromArray($data);
     }
 
     private function fallbackPlan(): Plan

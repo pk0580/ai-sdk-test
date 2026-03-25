@@ -41,7 +41,9 @@ class LoopControllerTest extends TestCase
                 'decision' => 'finish',
                 'thought' => 'Information is sufficient.',
                 'next_suggestion' => null
-            ])
+            ]),
+            // Ответ для Responder (финальный ответ)
+            "Final human-friendly response."
         ])->preventStrayPrompts();
 
         $planner = new Planner($toolRegistry);
@@ -50,9 +52,7 @@ class LoopControllerTest extends TestCase
 
         $result = $controller->execute("Test message");
 
-        $this->assertStringContainsString('Финальный анализ: Information is sufficient.', $result);
-        $this->assertStringContainsString('[test_tool] Initial step', $result);
-        $this->assertStringContainsString('Результат: Tool result', $result);
+        $this->assertEquals("Final human-friendly response.", $result);
     }
 
     public function test_loop_controller_can_continue_loop_based_on_reflection()
@@ -75,14 +75,22 @@ class LoopControllerTest extends TestCase
             json_encode([
                 'decision' => 'continue',
                 'thought' => 'Need more data.',
-                'next_suggestion' => 'Try test_tool again with more details'
+                'next_suggestion' => 'Try test_tool again'
             ]),
-            // 3. Reflector response (finish)
+            // 3. Planner::parseStep response for next_suggestion
+            json_encode([
+                'steps' => [
+                    ['tool' => 'test_tool', 'parameters' => ['step' => 2], 'description' => 'Try test_tool again']
+                ]
+            ]),
+            // 4. Reflector response (finish)
             json_encode([
                 'decision' => 'finish',
                 'thought' => 'Now it is enough.',
                 'next_suggestion' => null
-            ])
+            ]),
+            // 5. Responder response
+            "Multi-step final response."
         ])->preventStrayPrompts();
 
         $planner = new Planner($toolRegistry);
@@ -91,8 +99,6 @@ class LoopControllerTest extends TestCase
 
         $result = $controller->execute("Test multi-step");
 
-        $this->assertStringContainsString('Финальный анализ: Now it is enough.', $result);
-        $this->assertStringContainsString('1. [test_tool] Step 1', $result);
-        $this->assertStringContainsString('2. [test_tool] Try test_tool again with more details', $result);
+        $this->assertEquals("Multi-step final response.", $result);
     }
 }

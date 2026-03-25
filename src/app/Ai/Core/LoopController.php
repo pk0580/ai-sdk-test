@@ -6,6 +6,7 @@ use App\Ai\DTO\Plan;
 use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Tools\Request;
 
 class LoopController
@@ -108,34 +109,41 @@ class LoopController
 
     private function parseNextStep(string $suggestion): ?Step
     {
-        // TODO
-        // В идеале здесь должен быть вызов Planner или другой логики для превращения текста в Step
-        // Пока попробуем найти упоминание инструмента в предложении
-        foreach ($this->toolRegistry->all() as $name => $tool) {
-            if (stripos($suggestion, $name) !== false) {
-                // Если находим название инструмента, пытаемся извлечь параметры или используем пустые
-                return new Step($name, [], $suggestion);
-            }
-        }
-
-        return null;
+        return $this->planner->parseStep($suggestion);
     }
 
     private function formatFinalResponse(string $userMessage, array $executedSteps, string $finalThought): string
     {
-        // TODO
-        // Здесь можно было бы вызвать финального "Ответчика" (Responder Agent),
-        // но для начала просто соберем результаты
-        $summary = "Финальный анализ: {$finalThought}\n\n";
-        $summary .= "История выполнения:\n";
+        Log::info("LoopController: Формирование финального ответа");
 
+        $history = "";
         foreach ($executedSteps as $i => $item) {
             /** @var Step $step */
             $step = $item['step'];
-            $summary .= ($i + 1) . ". [{$step->tool}] " . ($step->description ?? '') . "\n";
-            $summary .= "   Результат: " . substr(str_replace("\n", " ", (string)$item['result']), 0, 200) . "...\n";
+            $result = is_string($item['result']) ? $item['result'] : json_encode($item['result'], JSON_UNESCAPED_UNICODE);
+            $history .= ($i + 1) . ". Инструмент [{$step->tool}]: " . ($step->description ?? '') . "\n";
+            $history .= "   Результат: " . mb_substr($result, 0, 500) . (mb_strlen($result) > 500 ? "..." : "") . "\n\n";
         }
 
-        return $summary;
+        $prompt = <<<PROMPT
+Ты — ИИ-ответчик (Responder Agent). Твоя задача — составить финальный, человекопонятный ответ пользователю на основе истории выполненных действий и заключительных мыслей.
+
+Запрос пользователя: {$userMessage}
+Финальное заключение: {$finalThought}
+
+История выполнения:
+{$history}
+
+Сформулируй краткий, точный и полезный ответ на языке пользователя. Не упоминай названия инструментов, если это не требуется для понимания.
+PROMPT;
+
+        try {
+            $agent = new AnonymousAgent($prompt, [], []);
+            $response = $agent->prompt("Сформулируй финальный ответ.");
+            return (string) $response;
+        } catch (\Exception $e) {
+            Log::error("LoopController: Ошибка при формировании ответа", ['error' => $e->getMessage()]);
+            return "Финальный анализ: {$finalThought}\n\nИстория:\n{$history}";
+        }
     }
 }

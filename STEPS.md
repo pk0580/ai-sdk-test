@@ -282,7 +282,8 @@ Output
 4. Vector search tool
 5. Reflection ✓
 6. Loop ✓
-7. Multi-agent
+7. Responder Agent ✓
+8. Multi-agent
 
 ---
 
