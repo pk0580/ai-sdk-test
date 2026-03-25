@@ -3,6 +3,11 @@
 namespace App\Ai\Core;
 
 use App\Ai\DTO\Step;
+use App\Ai\Events\PlanCreated;
+use App\Ai\Events\ReflectionGenerated;
+use App\Ai\Events\StepCompleted;
+use App\Ai\Events\ToolCalled;
+use App\Ai\Events\ToolResultReceived;
 use App\Ai\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Log;
 use App\Ai\Agents\SmartAnonymousAgent;
@@ -54,6 +59,8 @@ class LoopController
 
         // 1. Генерируем начальный план
         $plan = $this->planner->generate($userMessage);
+        PlanCreated::dispatch($plan, ['session_id' => $this->sessionId]);
+
         $executedSteps = [];
         $currentIteration = 0;
 
@@ -85,8 +92,12 @@ class LoopController
                 ]);
 
                 $startTime = microtime(true);
+                ToolCalled::dispatch($step, ['session_id' => $this->sessionId]);
+
                 $toolResult = $this->executeStep($step);
                 $latency = microtime(true) - $startTime;
+
+                ToolResultReceived::dispatch($step, $toolResult, ['session_id' => $this->sessionId]);
 
                 $this->logStep([
                     'thought' => $step->description ?? "Выполнение инструмента {$step->tool}",
@@ -113,6 +124,12 @@ class LoopController
             $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
             $latency = microtime(true) - $startTime;
 
+            ReflectionGenerated::dispatch(
+                $reflection['decision'],
+                $reflection['thought'],
+                ['session_id' => $this->sessionId]
+            );
+
             $this->logStep([
                 'agent_name' => 'Reflector',
                 'thought' => $reflection['thought'],
@@ -136,6 +153,7 @@ class LoopController
                     Log::info("LoopController: Добавлен новый шаг из рефлексии", ['tool' => $nextStep->tool]);
                 }
             }
+            StepCompleted::dispatch(['batch_count' => count($batchSteps)], ['session_id' => $this->sessionId]);
         }
 
         if ($currentIteration >= $this->maxIterations) {

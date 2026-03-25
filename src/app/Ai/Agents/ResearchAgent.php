@@ -9,7 +9,7 @@ use Laravel\Ai\Attributes\Timeout;
 use Illuminate\Support\Facades\Log;
 
 #[MaxSteps(10)]
-#[Timeout(120)]
+#[Timeout(600)]
 class ResearchAgent extends BaseAgent
 {
     private LoopController $loopController;

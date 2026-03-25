@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Ai\Core\Supervisor;
+use App\Ai\Agents\SummaryAgent;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use App\Ai\Events\UserMessageReceived;
@@ -34,6 +36,13 @@ class AppServiceProvider extends ServiceProvider
             $registry->register('vector_search', $this->app->make(VectorSearchTool::class));
 
             return $registry;
+        });
+
+        $this->app->singleton(Supervisor::class, function ($app) {
+            return new Supervisor(
+                $app->make(ResearchAgent::class),
+                $app->make(SummaryAgent::class)
+            );
         });
 
         $this->app->bind(ResearchAgent::class, function ($app) {

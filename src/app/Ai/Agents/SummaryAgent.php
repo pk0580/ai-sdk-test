@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Log;
 
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Timeout;
-use Laravel\Ai\Attributes\UseSmartestModel;
+// use Laravel\Ai\Attributes\UseSmartestModel;
 
-#[UseSmartestModel]
+// #[UseSmartestModel]
 #[MaxTokens(2000)]
-#[Timeout(60)]
+#[Timeout(300)]
 class SummaryAgent extends BaseAgent
 {
     public function __construct()
@@ -19,6 +19,11 @@ class SummaryAgent extends BaseAgent
         Выделяй ключевые моменты и рекомендации.";
 
         parent::__construct('SummaryAgent', $prompt);
+    }
+
+    public function model(): string
+    {
+        return config('ai.providers.ollama.models.text.smartest');
     }
 
     public function execute(string $task): string

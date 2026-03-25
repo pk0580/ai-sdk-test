@@ -5,6 +5,7 @@ namespace App\Ai\Core;
 use App\Ai\Agents\BaseAgent;
 use App\Ai\Agents\ResearchAgent;
 use App\Ai\Agents\SummaryAgent;
+use App\Ai\Events\SupervisorDecisionMade;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\AnonymousAgent;
 
@@ -27,6 +28,8 @@ class Supervisor
         // Для простоты MVP, Supervisor сам решает через LLM, каких агентов вызвать и в каком порядке.
 
         $decision = $this->makeDecision($userMessage);
+
+        SupervisorDecisionMade::dispatch($decision, $userMessage);
 
         Log::info("Supervisor: Решение принято", ['decision' => $decision]);
 
@@ -94,7 +97,11 @@ class Supervisor
 
         try {
             $agent = new AnonymousAgent($prompt, [], []);
-            $response = $agent->prompt($message);
+            $response = $agent->prompt(
+                $message,
+                provider: 'ollama',
+                model: config('ai.providers.ollama.models.text.smartest')
+            );
             $text = (string) $response;
 
             $jsonStart = strpos($text, '{');
