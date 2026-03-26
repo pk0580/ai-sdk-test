@@ -26,9 +26,29 @@ class Planner
 
     private function getResponse(AnonymousAgent $agent, string $message): string
     {
-        $response = $agent->prompt($message);
+        $maxAttempts = 2;
+        $attempt = 0;
 
-        return (string) $response;
+        while ($attempt < $maxAttempts) {
+            try {
+                $response = $agent->prompt($message);
+                return (string) $response;
+            } catch (\Exception $e) {
+                $attempt++;
+                Log::warning("Планировщик: Попытка {$attempt} не удалась", [
+                    'error' => $e->getMessage()
+                ]);
+
+                if ($attempt >= $maxAttempts) {
+                    throw $e;
+                }
+
+                // Небольшая задержка перед повтором
+                usleep(500000); // 0.5 сек
+            }
+        }
+
+        return '';
     }
 
     private function getInstructions(): string
@@ -36,11 +56,17 @@ class Planner
         $definitions = json_encode($this->toolRegistry->getToolsDefinitions(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         return <<<PROMPT
-Ты — ИИ-планировщик. Твоя задача — разбить запрос пользователя на последовательность выполняемых шагов.
+Ты — ИИ-планировщик. Твоя задача — разбить запрос пользователя на минимально необходимую последовательность выполняемых шагов.
 Каждый шаг должен указывать используемый инструмент и его параметры.
 
 Доступные инструменты:
 {$definitions}
+
+ОСОБЫЕ ПРАВИЛА:
+1. Используй ТОЛЬКО релевантные инструменты. Не используй `calculator`, если в запросе нет математических вычислений.
+2. Для поиска информации используй `vector_search`. Формулируй четкие поисковые запросы на языке оригинала или на языке системы (обычно русский/английский).
+3. Если запрос требует комплексного ответа, начни с поиска информации.
+4. ОТВЕЧАЙ ТОЛЬКО JSON-ОБЪЕКТОМ. НИКАКИХ ПОЯСНЕНИЙ ДО ИЛИ ПОСЛЕ.
 
 Ответ должен быть СТРОГО в формате JSON:
 {
@@ -48,7 +74,7 @@ class Planner
     {
       "tool": "название",
       "parameters": { ... },
-      "description": "описание"
+      "description": "описание цели шага"
     }
   ]
 }
@@ -59,12 +85,12 @@ PROMPT;
     {
         Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
 
-        $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
+        // $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
 
-        if (Cache::has($cacheKey)) {
-            Log::info("Планировщик: Использую кешированный план");
-            return Plan::fromArray(Cache::get($cacheKey));
-        }
+        // if (Cache::has($cacheKey)) {
+        //     Log::info("Планировщик: Использую кешированный план");
+        //     return Plan::fromArray(Cache::get($cacheKey));
+        // }
 
         try {
             $agent = $this->createAgent($this->getInstructions());
@@ -73,7 +99,7 @@ PROMPT;
             $plan = $this->parsePlan($text);
 
             // Кешируем на 1 час
-            Cache::put($cacheKey, $plan->toArray(), 3600);
+            // Cache::put($cacheKey, $plan->toArray(), 3600);
 
             return $plan;
 

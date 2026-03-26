@@ -45,7 +45,14 @@ class LoopController
 
     private function getResponse(AnonymousAgent $agent, string $message): string
     {
-        return (string) $agent->prompt($message);
+        try {
+            return (string) $agent->prompt($message);
+        } catch (\Exception $e) {
+            Log::error("LoopController: Ошибка генерации ответа LLM", [
+                'error' => $e->getMessage()
+            ]);
+            return "Ошибка при генерации ответа от ИИ. Пожалуйста, попробуйте позже. (Детали: {$e->getMessage()})";
+        }
     }
 
     /**
