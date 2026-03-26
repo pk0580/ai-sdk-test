@@ -90,33 +90,45 @@
     function handleStreamEvent(data) {
         const { type, content } = data;
 
+        if (content === undefined || content === null) return;
+
         switch (type) {
             case 'supervisor_decision':
                 appendOutput(`\n[Supervisor] Решение: ${content.type === 'chain' ? 'Цепочка агентов' : 'Один агент'}\n`);
-                if (content.agents) {
-                    appendOutput(`План: ${content.agents.map(a => a.agent).join(' -> ')}\n`);
+                if (content.agents && Array.isArray(content.agents)) {
+                    appendOutput(`План: ${content.agents.map(a => (a && a.agent) || 'unknown').join(' -> ')}\n`);
                 }
                 break;
             case 'plan_created':
-                appendOutput(`\n[Planner] Создан план действий (${content.steps.length} шагов):\n`);
-                content.steps.forEach((s, i) => appendOutput(`${i+1}. ${s.tool}: ${s.description}\n`));
+                if (content.steps && Array.isArray(content.steps)) {
+                    appendOutput(`\n[Planner] Создан план действий (${content.steps.length} шагов):\n`);
+                    content.steps.forEach((s, i) => {
+                        const toolName = (s && s.tool) || 'unknown tool';
+                        const description = (s && s.description) || '';
+                        appendOutput(`${i+1}. ${toolName}: ${description}\n`);
+                    });
+                }
                 break;
             case 'tool_called':
-                appendOutput(`\n[Action] Вызов инструмента: ${content.tool}...\n`);
+                appendOutput(`\n[Action] Вызов инструмента: ${(content && content.tool) || 'unknown'}...\n`);
                 break;
             case 'tool_result':
-                appendOutput(`[Result] Получен результат (длина: ${JSON.stringify(content).length} симв.)\n`);
+                const resultStr = typeof content === 'string' ? content : JSON.stringify(content);
+                const len = resultStr ? resultStr.length : 0;
+                appendOutput(`[Result] Получен результат (длина: ${len} симв.)\n`);
                 break;
             case 'reflection':
-                appendOutput(`\n[Reflector] Анализ: ${content.thought}\n`);
-                appendOutput(`Решение: ${content.decision}\n`);
+                appendOutput(`\n[Reflector] Анализ: ${(content && content.thought) || ''}\n`);
+                appendOutput(`Решение: ${(content && content.decision) || ''}\n`);
                 break;
             case 'final_result':
-                appendOutput(`\n--- Финальный ответ ---\n${content}\n`);
+                appendOutput(`\n--- Финальный ответ ---\n${content || ''}\n`);
                 break;
             case 'text': // Fallback для старого формата
-                appendOutput(content);
+                appendOutput(content || '');
                 break;
+            default:
+                console.warn('Unknown event type:', type, content);
         }
     }
 

@@ -63,7 +63,7 @@ class Supervisor
     {
         // Простой эвристический выбор для детерминированных тестов и быстрого MVP
         $lower = mb_strtolower($message);
-        if (str_contains($lower, 'summarize') || str_contains($lower, 'резю') || str_contains($lower, 'кратк')) {
+        if (str_contains($lower, 'summarize') || str_contains($lower, 'резюме') || (str_contains($lower, 'кратк') && !str_contains($lower, 'правила'))) {
             return [
                 'type' => 'chain',
                 'agents' => [

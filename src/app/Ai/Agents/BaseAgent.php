@@ -5,13 +5,12 @@ namespace App\Ai\Agents;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
-use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Promptable;
 use Stringable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 
-abstract class BaseAgent implements Agent, Conversational, HasTools, HasStructuredOutput
+abstract class BaseAgent implements Agent, Conversational, HasTools
 {
     use Promptable;
 

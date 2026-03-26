@@ -74,7 +74,6 @@ class AiController extends Controller
                 $sendEvent('reflection', [
                     'decision' => $event->decision,
                     'thought' => $event->thought,
-                    'context' => $event->context
                 ]);
             });
 
