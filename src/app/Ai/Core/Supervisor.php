@@ -97,11 +97,7 @@ class Supervisor
 
         try {
             $agent = new AnonymousAgent($prompt, [], []);
-            $response = $agent->prompt(
-                $message,
-                provider: 'ollama',
-                model: config('ai.providers.ollama.models.text.smartest')
-            );
+            $response = $agent->prompt($message);
             $text = (string) $response;
 
             $jsonStart = strpos($text, '{');

@@ -14,6 +14,9 @@ class CheapAnonymousAgent extends AnonymousAgent
 {
     public function model(): string
     {
-        return config('ai.providers.ollama.models.text.cheapest');
+        $defaultProvider = config('ai.default');
+        return config("ai.providers.{$defaultProvider}.models.text.cheapest")
+            ?? config("ai.providers.{$defaultProvider}.model") // Для OpenAI/других где нет иерархии text.cheapest
+            ?? 'llama3.1:latest'; // Фоллбек
     }
 }

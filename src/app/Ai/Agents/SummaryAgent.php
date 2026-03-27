@@ -23,7 +23,10 @@ class SummaryAgent extends BaseAgent
 
     public function model(): string
     {
-        return config('ai.providers.ollama.models.text.smartest');
+        $defaultProvider = config('ai.default');
+        return config("ai.providers.{$defaultProvider}.models.text.smartest")
+            ?? config("ai.providers.{$defaultProvider}.model")
+            ?? 'gpt-4o';
     }
 
     public function execute(string $task): string

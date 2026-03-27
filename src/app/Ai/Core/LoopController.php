@@ -18,25 +18,16 @@ use Illuminate\Support\Str;
 
 class LoopController
 {
-    private Planner $planner;
-    private Reflector $reflector;
-    private ToolRegistry $toolRegistry;
-    private int $maxIterations = 5;
     private ?string $sessionId = null;
     private array $executedSteps = [];
     private array $seenResults = [];
 
     public function __construct(
-        Planner $planner,
-        Reflector $reflector,
-        ToolRegistry $toolRegistry,
-        int $maxIterations = 5
-    ) {
-        $this->planner = $planner;
-        $this->reflector = $reflector;
-        $this->toolRegistry = $toolRegistry;
-        $this->maxIterations = $maxIterations;
-    }
+        private readonly Planner      $planner,
+        private readonly Reflector    $reflector,
+        private readonly ToolRegistry $toolRegistry,
+        private readonly int $maxIterations = 5
+    ) {}
 
     private function createAgent(string $instructions): AnonymousAgent
     {
