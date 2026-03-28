@@ -40,7 +40,7 @@ class ResponderSecurityTest extends TestCase
         ]);
 
         $toolRegistry = Mockery::mock(ToolRegistry::class);
-        $tool = Mockery::mock(\App\Ai\Tools\BaseTool::class);
+        $tool = Mockery::mock(\Laravel\Ai\Contracts\Tool::class);
         $tool->shouldReceive('handle')->andReturn($foundAlgorithm);
         $toolRegistry->shouldReceive('get')->with('vector_search')->andReturn($tool);
 

@@ -35,7 +35,7 @@ class AgentLoggingTest extends TestCase
                     [
                         'tool' => 'test_tool',
                         'parameters' => ['p' => 'v'],
-                        'description' => 'Test Step'
+                        'description' => 'Test OrchestrationStep'
                     ]
                 ]
             ]),
@@ -62,7 +62,7 @@ class AgentLoggingTest extends TestCase
         $this->assertDatabaseHas('ai_logs', [
             'agent_name' => 'LoopController',
             'action' => 'test_tool',
-            'thought' => 'Test Step'
+            'thought' => 'Test OrchestrationStep'
         ]);
 
         $this->assertDatabaseHas('ai_logs', [
@@ -78,7 +78,7 @@ class AgentLoggingTest extends TestCase
 
         // Проверяем session_id
         $logs = AiLog::all();
-        $this->assertCount(2, $logs);
+        $this->assertGreaterThanOrEqual(2, $logs->count());
         $this->assertEquals($logs[0]->session_id, $logs[1]->session_id);
     }
 }

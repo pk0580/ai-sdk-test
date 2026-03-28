@@ -23,12 +23,11 @@ class VectorStore
         $documentId = $documentId ?? uniqid();
         $title = $metadata['title'] ?? $this->extractTitle($content);
 
-        if ($title === 'Документ') {
-            $title = $this->extractTitle($content);
-        }
-
-        if (mb_strlen($title) < 5) {
-            $title = 'Без названия';
+        if (empty($title) || $title === 'Документ' || $title === 'Без названия') {
+            $newTitle = $this->extractTitle($content);
+            if ($newTitle !== 'Без названия') {
+                $title = $newTitle;
+            }
         }
 
         $paragraphs = preg_split("/\n\s*\n/", $content);

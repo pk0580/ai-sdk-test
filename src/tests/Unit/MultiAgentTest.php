@@ -4,6 +4,9 @@ namespace Tests\Unit;
 
 use App\Ai\Agents\CheapAnonymousAgent;
 use App\Ai\Agents\SmartAnonymousAgent;
+use App\Ai\Core\Interfaces\OrchestratorPlannerInterface;
+use App\Ai\Core\Plans\OrchestrationPlan;
+use App\Ai\Core\Plans\OrchestrationStep;
 use Tests\TestCase;
 use App\Ai\Agents\ResearchAgent;
 use App\Ai\Agents\SummaryAgent;
@@ -23,10 +26,11 @@ class MultiAgentTest extends TestCase
 
     public function test_supervisor_chooses_single_agent()
     {
-        // 1. Supervisor decision (AnonymousAgent)
-        AnonymousAgent::fake([
-            ['type' => 'single', 'agent' => 'research']
-        ]);
+        // 1. Mock Planner
+        $planner = Mockery::mock(OrchestratorPlannerInterface::class);
+        $planner->shouldReceive('plan')
+            ->once()
+            ->andReturn(new OrchestrationPlan([new OrchestrationStep('research', 'Simple task')]));
 
         // 2. Planner plan (CheapAnonymousAgent inside ResearchAgent's LoopController)
         CheapAnonymousAgent::fake([
@@ -43,7 +47,7 @@ class MultiAgentTest extends TestCase
 
         $researchAgent = app(ResearchAgent::class);
         $summaryAgent = app(SummaryAgent::class);
-        $supervisor = new Supervisor($researchAgent, $summaryAgent);
+        $supervisor = new Supervisor($researchAgent, $summaryAgent, $planner);
 
         $response = $supervisor->handle("Simple task");
 
@@ -52,12 +56,21 @@ class MultiAgentTest extends TestCase
 
     public function test_supervisor_runs_chain_of_agents()
     {
-        // 1. Planner (CheapAnonymousAgent in ResearchAgent)
+        // 1. Mock Planner
+        $planner = Mockery::mock(OrchestratorPlannerInterface::class);
+        $planner->shouldReceive('plan')
+            ->once()
+            ->andReturn(new OrchestrationPlan([
+                new OrchestrationStep('research', 'Research Laravel'),
+                new OrchestrationStep('summary', 'Summarize results')
+            ]));
+
+        // 2. Planner (CheapAnonymousAgent in ResearchAgent)
         CheapAnonymousAgent::fake([
             ['steps' => []]
         ]);
 
-        // 2. Responder Agent (SmartAnonymousAgent in ResearchAgent)
+        // 3. Responder Agent (SmartAnonymousAgent in ResearchAgent)
         SmartAnonymousAgent::fake([
             'Detailed research data'
         ]);
@@ -69,7 +82,7 @@ class MultiAgentTest extends TestCase
 
         $researchAgent = app(ResearchAgent::class);
         $summaryAgent = app(SummaryAgent::class);
-        $supervisor = new Supervisor($researchAgent, $summaryAgent);
+        $supervisor = new Supervisor($researchAgent, $summaryAgent, $planner);
 
         $response = $supervisor->handle("Research and summarize Laravel");
 

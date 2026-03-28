@@ -86,12 +86,13 @@ PROMPT;
     {
         Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
 
-        // $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
+        $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
 
-        // if (Cache::has($cacheKey)) {
-        //     Log::info("Планировщик: Использую кешированный план");
-        //     return Plan::fromArray(Cache::get($cacheKey));
-        // }
+        if (Cache::has($cacheKey)) {
+            Log::info("Планировщик: Использую кешированный план");
+            $cachedData = Cache::get($cacheKey);
+            return Plan::fromArray($cachedData);
+        }
 
         try {
             $agent = $this->createAgent($this->getInstructions());
@@ -100,7 +101,7 @@ PROMPT;
             $plan = $this->parsePlan($text);
 
             // Кешируем на 1 час
-            // Cache::put($cacheKey, $plan->toArray(), 3600);
+            Cache::put($cacheKey, $plan->toArray(), 3600);
 
             return $plan;
 

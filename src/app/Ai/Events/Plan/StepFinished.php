@@ -1,18 +1,19 @@
 <?php
 
-namespace App\Ai\Events;
+namespace App\Ai\Events\Plan;
 
-use App\Ai\Core\Plans\OrchestrationPlan;
+use App\Ai\Core\Plans\OrchestrationStep;
+use App\Ai\Core\State\AgentState;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class SupervisorDecisionMade
+class StepFinished
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public OrchestrationPlan|array $decision,
-        public string                  $userMessage
+        public OrchestrationStep $step,
+        public AgentState        $state
     ) {}
 }

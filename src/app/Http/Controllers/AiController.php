@@ -96,11 +96,11 @@ class AiController extends Controller
 
         // Для очереди используем ResearchAgent, так как он запускает основной цикл
         $agent = app(\App\Ai\Agents\ResearchAgent::class);
-        $queuedResponse = $agent->queue($message);
+        $agent->queue($message);
 
         return response()->json([
             'message' => 'Запрос (ResearchAgent) поставлен в очередь',
-            'job_id' => $queuedResponse->id()
+            'job_id' => 'queued' // AI SDK job objects might not have id() in this version
         ]);
     }
 

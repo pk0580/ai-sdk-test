@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Ai\Core\Supervisor;
+use App\Ai\Core\HybridOrchestratorPlanner;
+use App\Ai\Core\Interfaces\OrchestratorPlannerInterface;
 use App\Ai\Agents\SummaryAgent;
 use Illuminate\Support\ServiceProvider;
 use App\Console\Commands\TestAiAgent;
@@ -27,10 +29,13 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
 
+        $this->app->bind(OrchestratorPlannerInterface::class, HybridOrchestratorPlanner::class);
+
         $this->app->singleton(Supervisor::class, function ($app) {
             return new Supervisor(
                 $app->make(ResearchAgent::class),
-                $app->make(SummaryAgent::class)
+                $app->make(SummaryAgent::class),
+                $app->make(OrchestratorPlannerInterface::class)
             );
         });
 

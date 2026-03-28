@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Core\State\AgentState;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
@@ -66,5 +67,5 @@ abstract class BaseAgent implements Agent, Conversational, HasTools
      * Позволяет агенту выполнять задачи с использованием LoopController.
      * По умолчанию, агенты могут иметь разный набор инструментов или промптов.
      */
-    abstract public function execute(string $task): string;
+    abstract public function execute(string|AgentState $task): string;
 }

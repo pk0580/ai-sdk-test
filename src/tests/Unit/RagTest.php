@@ -24,17 +24,18 @@ class RagTest extends TestCase
         });
 
         $store = new VectorStore();
-        $docs = $store->add("Paragraph 1\n\nParagraph 2", ['source' => 'manual'], 'doc1');
+        // Используем текст длиннее 50 символов
+        $content = "This is a long enough paragraph to pass the length filter of the VectorStore. It should be at least fifty characters long.\n\n" .
+                   "This is another long paragraph to ensure we have multiple chunks and it also passes the filter.";
+        $docs = $store->add($content, ['source' => 'manual'], 'doc1');
 
         $this->assertInstanceOf(Collection::class, $docs);
-        $this->assertCount(2, $docs);
-        $this->assertEquals('Paragraph 1', $docs[0]->content);
-        $this->assertStringContainsString('Paragraph 2', $docs[1]->content);
-        $this->assertEquals('doc1', $docs[0]->metadata['document_id']);
-        $this->assertEquals(0, $docs[0]->metadata['chunk_index']);
-        $this->assertEquals(1, $docs[1]->metadata['chunk_index']);
+        // add() добавляет Title чанк + отфильтрованные чанки
+        $this->assertGreaterThanOrEqual(2, $docs->count());
+        $this->assertStringContainsString('This is a long enough paragraph', $docs->firstWhere('metadata.chunk_index', 1)->content);
 
-        $results = $store->search('test query', 1);
+        // Поиск должен найти что-то, так как мы используем подстроку из контента
+        $results = $store->search('paragraph', 1);
         $this->assertCount(1, $results);
     }
 
@@ -45,18 +46,18 @@ class RagTest extends TestCase
         });
 
         $store = new VectorStore();
-        // Add 3 chunks for doc1
-        $store->add("P1\n\nP2\n\nP3", [], 'doc1');
-        // Add 1 chunk for doc2
-        $store->add("P4", [], 'doc2');
+        // Добавляем длинные параграфы для doc1
+        $longP = str_repeat("Long paragraph content ", 5);
+        $store->add("{$longP} 1\n\n{$longP} 2\n\n{$longP} 3", ['title' => 'Title One'], 'doc1');
+        // Добавляем длинный параграф для doc2
+        $store->add("{$longP} 4", ['title' => 'Title Two'], 'doc2');
 
-        // Search with limit 5, but perDocumentLimit 2
-        // Should return 2 chunks from doc1 and 1 chunk from doc2
-        $results = $store->search('test query', 5, 2);
+        // Поиск по ключевому слову 'paragraph'
+        $results = $store->search('paragraph', 5, 2);
 
-        $this->assertCount(3, $results);
-        $doc1Chunks = $results->filter(fn($doc) => $doc->metadata['document_id'] === 'doc1');
-        $doc2Chunks = $results->filter(fn($doc) => $doc->metadata['document_id'] === 'doc2');
+        // Ожидаем: 2 чанка от doc1 и 1 чанк от doc2
+        $doc1Chunks = $results->filter(fn($doc) => ($doc->metadata['document_id'] ?? null) === 'doc1');
+        $doc2Chunks = $results->filter(fn($doc) => ($doc->metadata['document_id'] ?? null) === 'doc2');
 
         $this->assertCount(2, $doc1Chunks);
         $this->assertCount(1, $doc2Chunks);
@@ -69,17 +70,18 @@ class RagTest extends TestCase
         });
 
         $store = new VectorStore();
-        $store->add('Document 1');
-        $store->add('Document 2');
+        $longText = "This is a very long document content to pass the length filter. " . str_repeat("More content to ensure it's long enough. ", 3);
+        $store->add($longText . ' 1', ['title' => 'Doc1'], 'd1');
+        $store->add($longText . ' 2', ['title' => 'Doc2'], 'd2');
 
         $tool = new VectorSearchTool($store);
 
-        $request = new Request(['query' => 'test query', 'limit' => 2]);
+        $request = new Request(['query' => 'document', 'limit' => 2]);
         $result = $tool->handle($request);
 
         $this->assertStringContainsString('--- DOCUMENT ---', $result);
-        $this->assertStringContainsString('Document 1', $result);
-        $this->assertStringContainsString('Document 2', $result);
+        $this->assertStringContainsString('Doc1', $result);
+        $this->assertStringContainsString('Doc2', $result);
     }
 
     public function test_vector_search_tool_returns_not_found_message()

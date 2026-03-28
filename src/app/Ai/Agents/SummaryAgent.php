@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Core\State\AgentState;
 use Illuminate\Support\Facades\Log;
 
 use Laravel\Ai\Attributes\MaxTokens;
@@ -29,11 +30,12 @@ class SummaryAgent extends BaseAgent
             ?? 'gpt-4o';
     }
 
-    public function execute(string $task): string
+    public function execute(string|AgentState $task): string
     {
-        Log::info("SummaryAgent: Создание саммари", ['task_input' => $task]);
+        $input = ($task instanceof AgentState) ? ($task->context ?: $task->input) : $task;
+        Log::info("SummaryAgent: Создание саммари", ['task_input' => $input]);
 
         // SummaryAgent может просто отвечать напрямую, так как его задача - синтез
-        return $this->ask("Создай резюме на основе следующих данных: " . $task);
+        return $this->ask("Создай резюме на основе следующих данных: " . $input);
     }
 }

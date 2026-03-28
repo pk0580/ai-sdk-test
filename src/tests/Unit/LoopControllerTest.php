@@ -72,7 +72,7 @@ class LoopControllerTest extends TestCase
             // 1. Planner response
             json_encode([
                 'steps' => [
-                    ['tool' => 'test_tool', 'parameters' => ['step' => 1], 'description' => 'Step 1']
+                    ['tool' => 'test_tool', 'parameters' => ['step' => 1], 'description' => 'OrchestrationStep 1']
                 ]
             ]),
             // 2. Reflector response (continue)

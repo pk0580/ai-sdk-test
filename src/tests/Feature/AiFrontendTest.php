@@ -9,36 +9,29 @@ use Laravel\Ai\QueuedAgentPrompt;
 
 class AiFrontendTest extends TestCase
 {
-    /** @test */
-    public function index_page_is_accessible()
+    public function test_index_page_is_accessible(): void
     {
         $response = $this->get('/');
         $response->assertStatus(200);
         $response->assertSee('AI SDK Testing');
     }
 
-    /** @test */
-    public function chat_method_returns_json()
+    public function test_chat_method_returns_json(): void
     {
-        // Мокаем ответ агента, если это возможно, но здесь проверим просто доступность
-        // Так как это тест интеграции с SDK, может потребоваться реальный ключ или мок SDK
         $response = $this->post('/chat', ['message' => 'Hello']);
         $response->assertStatus(200);
         $response->assertJsonStructure(['response']);
     }
 
-    /** @test */
-    public function stream_method_returns_streamed_response()
+    public function test_stream_method_returns_streamed_response(): void
     {
         $response = $this->get('/stream?message=Hello');
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'text/event-stream; charset=UTF-8');
     }
 
-    /** @test */
-    public function queue_method_dispatches_job()
+    public function test_queue_method_dispatches_job(): void
     {
-        // Laravel AI SDK использует свои механизмы для очередей
         $response = $this->post('/queue', ['message' => 'Hello']);
         $response->assertStatus(200);
         $response->assertJsonStructure(['message', 'job_id']);

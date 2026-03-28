@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Core\State\AgentState;
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Core\LoopController;
 use Laravel\Ai\Attributes\MaxSteps;
@@ -30,13 +31,14 @@ class ResearchAgent extends BaseAgent
         return $this->toolRegistry->all();
     }
 
-    public function execute(string $task): string
+    public function execute(string|AgentState $task): string
     {
-        Log::info("ResearchAgent: Запуск исследования", ['task' => $task]);
+        $input = ($task instanceof AgentState) ? ($task->context ?: $task->input) : $task;
+        Log::info("ResearchAgent: Запуск исследования", ['task' => $input]);
 
         // ResearchAgent делегирует выполнение LoopController
         // Мы можем добавить дополнительные инструкции к задаче
-        $enrichedTask = "Проведи исследование по теме: " . $task . ". Используй инструменты поиска данных.";
+        $enrichedTask = "Проведи исследование по теме: " . $input . ". Используй инструменты поиска данных.";
 
         return $this->loopController->execute($enrichedTask);
     }

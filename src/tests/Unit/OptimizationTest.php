@@ -30,7 +30,7 @@ class OptimizationTest extends TestCase
 
         // Фейкаем LLM для Planner (CheapAnonymousAgent)
         CheapAnonymousAgent::fake([
-            ['steps' => [['tool' => 'calculator', 'parameters' => ['expression' => '2+2'], 'description' => 'Test Step']]]
+            ['steps' => [['tool' => 'calculator', 'parameters' => ['expression' => '2+2'], 'description' => 'Test OrchestrationStep']]]
         ]);
 
         // Первый вызов - должен пойти в LLM
@@ -57,10 +57,10 @@ class OptimizationTest extends TestCase
         $loopController = new LoopController($planner, $reflector, $toolRegistry);
 
         $steps = [
-            new Step('calculator', ['expression' => '1+1'], 'Step 1'),
-            new Step('calculator', ['expression' => '2+2'], 'Step 2'),
-            new Step('calculator', ['expression' => '3+3'], 'Step 3'),
-            new Step('calculator', ['expression' => '4+4'], 'Step 4'),
+            new Step('calculator', ['expression' => '1+1'], 'OrchestrationStep 1'),
+            new Step('calculator', ['expression' => '2+2'], 'OrchestrationStep 2'),
+            new Step('calculator', ['expression' => '3+3'], 'OrchestrationStep 3'),
+            new Step('calculator', ['expression' => '4+4'], 'OrchestrationStep 4'),
         ];
 
         $planner->shouldReceive('generate')->once()->andReturn(new \App\Ai\DTO\Plan($steps));
