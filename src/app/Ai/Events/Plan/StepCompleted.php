@@ -4,13 +4,12 @@ namespace App\Ai\Events\Plan;
 
 use App\Ai\Core\Plans\OrchestrationStep;
 use App\Ai\Core\State\AgentState;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class StepStarted
+class StepCompleted
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable, SerializesModels;
 
     public function __construct(
         public OrchestrationStep $step,

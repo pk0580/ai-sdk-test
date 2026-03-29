@@ -33,12 +33,28 @@ class ResearchAgent extends BaseAgent
 
     public function execute(string|AgentState $task): string
     {
-        $input = ($task instanceof AgentState) ? ($task->context ?: $task->input) : $task;
+        if ($task instanceof AgentState) {
+            $step = $task->step;
+            $instruction = $step?->task ?: $task->input;
+
+            $history = "";
+            if (!empty($task->history)) {
+                $history = "\n\nРанее было выполнено:\n";
+                foreach ($task->history as $entry) {
+                    $history .= "- Задача: {$entry['task']}\n  Результат: " . substr($entry['result'], 0, 200) . "...\n";
+                }
+            }
+            $input = $instruction . $history;
+        } else {
+            $input = $task;
+        }
+
         Log::info("ResearchAgent: Запуск исследования", ['task' => $input]);
 
         // ResearchAgent делегирует выполнение LoopController
-        // Мы можем добавить дополнительные инструкции к задаче
-        $enrichedTask = "Проведи исследование по теме: " . $input . ". Используй инструменты поиска данных.";
+        $enrichedTask = "Проведи исследование по теме: " . $input . ".
+        Если в истории уже есть данные, не дублируй их, а дополни или уточни.
+        Используй инструменты поиска данных.";
 
         return $this->loopController->execute($enrichedTask);
     }

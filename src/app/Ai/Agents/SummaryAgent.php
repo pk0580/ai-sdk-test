@@ -32,10 +32,21 @@ class SummaryAgent extends BaseAgent
 
     public function execute(string|AgentState $task): string
     {
-        $input = ($task instanceof AgentState) ? ($task->context ?: $task->input) : $task;
-        Log::info("SummaryAgent: Создание саммари", ['task_input' => $input]);
+        if ($task instanceof AgentState) {
+            $input = "Исходный вопрос: " . $task->input . "\n\n";
+            $input .= "Собранные данные:\n";
+            foreach ($task->history as $entry) {
+                if ($entry['agent'] === 'research') {
+                    $input .= "- " . $entry['result'] . "\n";
+                }
+            }
+        } else {
+            $input = $task;
+        }
+
+        Log::info("SummaryAgent: Создание саммари", ['input_length' => strlen($input)]);
 
         // SummaryAgent может просто отвечать напрямую, так как его задача - синтез
-        return $this->ask("Создай резюме на основе следующих данных: " . $input);
+        return $this->ask("Создай структурированный отчет на основе следующих данных: \n\n" . $input);
     }
 }
