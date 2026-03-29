@@ -110,7 +110,7 @@ PROMPT;
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return $this->fallbackPlan();
+            return $this->fallbackPlan($message);
         }
     }
 
@@ -134,7 +134,7 @@ PROMPT;
             Log::error("Планировщик: Ошибка парсинга предложения", [
                 'error' => $e->getMessage()
             ]);
-            return null;
+            return new Step('vector_search', ['query' => mb_substr($suggestion, 0, 100)], 'Резервный шаг из-за ошибки');
         }
     }
 
@@ -148,7 +148,7 @@ PROMPT;
 
         if ($jsonStart === false || $jsonEnd === false) {
             Log::error("Планировщик: JSON не найден в ответе", ['text' => $text]);
-            return $this->fallbackPlan();
+            return $this->fallbackPlan('');
         }
 
         $jsonContent = substr($text, $jsonStart, $jsonEnd - $jsonStart + 1);
@@ -162,21 +162,22 @@ PROMPT;
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             Log::error("Планировщик: Ошибка парсинга JSON", ['error' => json_last_error_msg(), 'content' => $jsonContent]);
-            return $this->fallbackPlan();
+            return $this->fallbackPlan('');
         }
 
         if (!isset($data['steps']) || !is_array($data['steps'])) {
             Log::error("Планировщик: Неверная структура JSON", ['data' => $data]);
-            return $this->fallbackPlan();
+            return $this->fallbackPlan('');
         }
 
         return Plan::fromArray($data);
     }
 
-    private function fallbackPlan(): Plan
+    private function fallbackPlan(string $message): Plan
     {
+        $query = mb_substr($message, 0, 100) ?: 'поиск информации';
         return new Plan([
-            new Step('vector_search', ['query' => 'general help'], 'Резервный шаг из-за ошибки')
+            new Step('vector_search', ['query' => $query], 'Резервный шаг из-за ошибки планировщика')
         ]);
     }
 }

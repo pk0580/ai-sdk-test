@@ -30,6 +30,7 @@
         <button id="btn-stream" class="btn btn-success">Стрим (stream)</button>
         <button id="btn-queue" class="btn btn-warning">Очередь (queue)</button>
         <button id="btn-broadcast" class="btn btn-info">Вещание (broadcast)</button>
+        <button id="btn-cancel" class="btn btn-danger d-none">Остановить</button>
     </div>
 
     <div class="mb-3">
@@ -41,12 +42,37 @@
 <script>
     const output = document.getElementById('output');
     const messageInput = document.getElementById('message');
+    const btnCancel = document.getElementById('btn-cancel');
+    let currentSessionId = null;
 
     function appendOutput(text, clear = false) {
         if (clear) output.innerText = '';
         output.innerText += text;
         output.scrollTop = output.scrollHeight;
     }
+
+    function toggleCancelButton(show) {
+        if (show) {
+            btnCancel.classList.remove('d-none');
+        } else {
+            btnCancel.classList.add('d-none');
+        }
+    }
+
+    // --- Остановка запроса ---
+    btnCancel.addEventListener('click', async () => {
+        if (!currentSessionId) return;
+        appendOutput('\n[Система] Отправка сигнала остановки...\n');
+        try {
+            await fetch('/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+        } catch (err) {
+            console.error('Cancel failed:', err);
+        }
+    });
 
     // --- Обычный запрос ---
     document.getElementById('btn-chat').addEventListener('click', async () => {
@@ -63,16 +89,27 @@
     // --- Стриминг ---
     document.getElementById('btn-stream').addEventListener('click', () => {
         appendOutput('Запуск процесса (Supervisor Chain)...\n', true);
+        toggleCancelButton(true);
         const msg = encodeURIComponent(messageInput.value);
         const eventSource = new EventSource(`/stream?message=${msg}`);
 
         eventSource.onmessage = function(e) {
             if (e.data === '[DONE]') {
                 eventSource.close();
+                toggleCancelButton(false);
+                currentSessionId = null;
                 appendOutput('\n--- Процесс завершен ---');
             } else {
                 try {
                     const data = JSON.parse(e.data);
+
+                    // Сохраняем sessionId для возможности отмены
+                    if (data.session_id) {
+                        currentSessionId = data.session_id;
+                    } else if (data.content && data.content.session_id) {
+                         currentSessionId = data.content.session_id;
+                    }
+
                     handleStreamEvent(data);
                 } catch (err) {
                     console.error('Error parsing JSON:', err, e.data);
@@ -83,6 +120,8 @@
         eventSource.onerror = function(e) {
             console.error('EventSource failed:', e);
             eventSource.close();
+            toggleCancelButton(false);
+            currentSessionId = null;
             appendOutput('\n--- Ошибка стрима ---');
         };
     });

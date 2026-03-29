@@ -9,7 +9,7 @@ use Laravel\Ai\Attributes\Timeout;
 
 // #[UseCheapestModel] для локального Ollama не работает
 #[MaxTokens(1000)]
-#[Timeout(300)]
+#[Timeout(600)]
 class CheapAnonymousAgent extends AnonymousAgent
 {
     public function model(): string

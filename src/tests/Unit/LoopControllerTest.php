@@ -51,7 +51,7 @@ class LoopControllerTest extends TestCase
         ]);
 
         $planner = new Planner($toolRegistry);
-        $reflector = new Reflector();
+        $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry);
 
         $result = $controller->execute("Test message");
@@ -101,7 +101,7 @@ class LoopControllerTest extends TestCase
         ]);
 
         $planner = new Planner($toolRegistry);
-        $reflector = new Reflector();
+        $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry, 3);
 
         $result = $controller->execute("Test multi-step");

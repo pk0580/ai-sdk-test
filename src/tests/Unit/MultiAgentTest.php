@@ -10,7 +10,6 @@ use Tests\TestCase;
 use App\Ai\Agents\ResearchAgent;
 use App\Ai\Agents\SummaryAgent;
 use App\Ai\Core\Supervisor;
-use Laravel\Ai\Ai;
 use Mockery;
 
 class MultiAgentTest extends TestCase

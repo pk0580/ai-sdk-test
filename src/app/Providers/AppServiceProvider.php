@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Core\Reflector;
 use App\Ai\Core\DynamicPlanner;
 use App\Ai\Core\Interfaces\DynamicPlannerInterface;
 use App\Ai\Core\Supervisor;
@@ -30,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(DynamicPlannerInterface::class, DynamicPlanner::class);
+
+        $this->app->singleton(Reflector::class, function ($app) {
+            return new Reflector($app->make(ToolRegistry::class));
+        });
 
         $this->app->singleton(Supervisor::class, function ($app) {
             return new Supervisor(

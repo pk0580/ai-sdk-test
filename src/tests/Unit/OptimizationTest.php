@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Ai\DTO\Plan;
 use Tests\TestCase;
 use App\Ai\Agents\CheapAnonymousAgent;
 use App\Ai\Agents\SmartAnonymousAgent;
@@ -11,7 +12,6 @@ use App\Ai\Core\LoopController;
 use App\Ai\Core\Reflector;
 use App\Ai\DTO\Step;
 use Illuminate\Support\Facades\Cache;
-use Laravel\Ai\AnonymousAgent;
 use Mockery;
 
 class OptimizationTest extends TestCase
@@ -63,7 +63,7 @@ class OptimizationTest extends TestCase
             new Step('calculator', ['expression' => '4+4'], 'OrchestrationStep 4'),
         ];
 
-        $planner->shouldReceive('generate')->once()->andReturn(new \App\Ai\DTO\Plan($steps));
+        $planner->shouldReceive('generate')->once()->andReturn(new Plan($steps));
 
         // Рефлексия должна быть вызвана после первого батча (3 шага) и после второго (1 шаг)
         // Первый батч: шаги 1, 2, 3. Рефлектор получает 3-й шаг.

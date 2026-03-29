@@ -2,6 +2,8 @@
 
 namespace Tests\Unit;
 
+use App\Ai\Memory\VectorStore;
+use App\Ai\Tools\VectorSearchTool;
 use PHPUnit\Framework\TestCase;
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Tools\CalculatorTool;
@@ -47,8 +49,8 @@ class ToolRegistryTest extends TestCase
     public function test_can_get_vector_search_tool_definition()
     {
         $registry = new ToolRegistry();
-        $mockStore = $this->createMock(\App\Ai\Memory\VectorStore::class);
-        $registry->register('vector_search', new \App\Ai\Tools\VectorSearchTool($mockStore));
+        $mockStore = $this->createMock(VectorStore::class);
+        $registry->register('vector_search', new VectorSearchTool($mockStore));
 
         $definitions = $registry->getToolsDefinitions();
 

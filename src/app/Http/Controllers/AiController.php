@@ -15,6 +15,7 @@ use App\Ai\Events\ToolCalled;
 use App\Ai\Events\ToolResultReceived;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AiController extends Controller
@@ -37,7 +38,7 @@ class AiController extends Controller
 
         $response = $this->supervisor->handle($message);
 
-        return response()->json(['response' => $response]);
+        return response()->json(['response' => $response->context ?? 'Ответ не сформирован']);
     }
 
     public function stream(Request $request): StreamedResponse
@@ -45,8 +46,14 @@ class AiController extends Controller
         $message = $request->input('message');
 
         return Response::stream(function () use ($message) {
-            $sendEvent = function ($type, $data) {
-                echo "data: " . json_encode(['type' => $type, 'content' => $data], JSON_UNESCAPED_UNICODE) . "\n\n";
+            $sessionId = null;
+
+            $sendEvent = function ($type, $data) use (&$sessionId) {
+                $payload = ['type' => $type, 'content' => $data];
+                if ($sessionId) {
+                    $payload['session_id'] = $sessionId;
+                }
+                echo "data: " . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
                 if (ob_get_level() > 0) {
                     ob_flush();
                 }
@@ -58,7 +65,8 @@ class AiController extends Controller
                 $sendEvent('supervisor_decision', $event->decision);
             });
 
-            Event::listen(PlanCreated::class, function ($event) use ($sendEvent) {
+            Event::listen(PlanCreated::class, function ($event) use ($sendEvent, &$sessionId) {
+                $sessionId = $event->options['session_id'] ?? null;
                 $sendEvent('plan_created', $event->plan->toArray());
             });
 
@@ -81,7 +89,7 @@ class AiController extends Controller
             $response = $this->supervisor->handle($message);
 
             // Финальный ответ
-            $sendEvent('final_result', $response);
+            $sendEvent('final_result', $response->context ?? 'Ответ не сформирован');
             echo "data: [DONE]\n\n";
         }, 200, [
             'Cache-Control' => 'no-cache',
@@ -112,5 +120,15 @@ class AiController extends Controller
         $agent->broadcastNow($message, ['ai-chat']);
 
         return response()->json(['message' => 'Вещание (ResearchAgent) запущено на канале ai-chat']);
+    }
+
+    public function cancel(Request $request): JsonResponse
+    {
+        $sessionId = $request->input('session_id');
+        if ($sessionId) {
+            Cache::put("cancel_{$sessionId}", true, 60);
+            return response()->json(['message' => "Запрос {$sessionId} отменен"]);
+        }
+        return response()->json(['error' => 'Session ID не указан'], 400);
     }
 }

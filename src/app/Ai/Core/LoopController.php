@@ -9,6 +9,7 @@ use App\Ai\Events\StepCompleted;
 use App\Ai\Events\ToolCalled;
 use App\Ai\Events\ToolResultReceived;
 use App\Ai\Tools\ToolRegistry;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Ai\Agents\SmartAnonymousAgent;
 use App\Models\AiLog;
@@ -46,6 +47,15 @@ class LoopController
         }
     }
 
+    private function isCancelled(): bool
+    {
+        if (!$this->sessionId) {
+            return false;
+        }
+
+        return Cache::has("cancel_{$this->sessionId}");
+    }
+
     /**
      * Запускает цикл выполнения задачи.
      * Возвращает итоговый результат.
@@ -65,11 +75,17 @@ class LoopController
         $currentIteration = 0;
 
         while (!empty($stepsToExecute) && $currentIteration < $this->maxIterations) {
+            if ($this->isCancelled()) {
+                Log::info("LoopController: Выполнение прервано пользователем [{$this->sessionId}]");
+                return $this->formatFinalResponse($userMessage, $this->executedSteps, "Обработка запроса была остановлена пользователем.");
+            }
+
             $batchSteps = $this->extractNextBatch($stepsToExecute);
             $batchResults = $this->executeBatch($batchSteps, $currentIteration);
 
             // Если executeBatch вернул строку, значит цикл прерван принудительно
             if (is_string($batchResults)) {
+                Log::info("LoopController: Выполнение прервано в executeBatch");
                 return $batchResults;
             }
 
@@ -118,6 +134,10 @@ class LoopController
         $batchResults = [];
 
         foreach ($batchSteps as $step) {
+            if ($this->isCancelled()) {
+                return $this->formatFinalResponse("Cancellation", $this->executedSteps, "Обработка запроса была остановлена пользователем.");
+            }
+
             $currentIteration++;
 
             Log::info("LoopController: Выполнение шага {$currentIteration}", [
@@ -188,10 +208,9 @@ class LoopController
 
     private function reflectOnBatch(string $userMessage, array $batchResults): array
     {
-        $lastBatchItem = end($batchResults);
         $startTime = microtime(true);
 
-        $reflection = $this->reflector->reflect($userMessage, $lastBatchItem['step'], $lastBatchItem['result']);
+        $reflection = $this->reflector->reflect($userMessage, $batchResults);
         $latency = microtime(true) - $startTime;
 
         ReflectionGenerated::dispatch(
@@ -216,8 +235,25 @@ class LoopController
         return is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE);
     }
 
-    private function parseNextStep(string $suggestion): ?Step
+    private function parseNextStep(string|array $suggestion): ?Step
     {
+        if (is_array($suggestion)) {
+            Log::info("LoopController: Рефлектор вернул готовый шаг", ['suggestion' => $suggestion]);
+
+            // Если рефлектор вернул массив с инструментом и параметрами,
+            // попробуем создать Step напрямую
+            if (isset($suggestion['tool']) && isset($suggestion['parameters'])) {
+                return new Step(
+                    $suggestion['tool'],
+                    $suggestion['parameters'],
+                    $suggestion['description'] ?? "Шаг из рефлексии"
+                );
+            }
+
+            // Если это массив, но не Step, превращаем его в JSON строку для планировщика
+            $suggestion = json_encode($suggestion, JSON_UNESCAPED_UNICODE);
+        }
+
         return $this->planner->parseStep($suggestion);
     }
 
@@ -235,12 +271,19 @@ class LoopController
 
     private function formatFinalResponse(string $userMessage, array $executedSteps, string $finalThought): string
     {
-        Log::info("LoopController: Формирование финального ответа");
+        Log::info("LoopController: Формирование финального ответа", [
+            'steps_count' => count($executedSteps),
+            'final_thought' => $finalThought
+        ]);
 
         $history = collect($executedSteps)->map(function ($item, $index) {
             /** @var Step $step */
             $step = $item['step'];
             $result = $this->formatOutput($item['result']);
+
+            // Очистка от некорректных UTF-8 символов
+            $result = mb_convert_encoding($result, 'UTF-8', 'UTF-8');
+
             $shortResult = mb_substr($result, 0, 2000) . (mb_strlen($result) > 2000 ? "..." : "");
 
             return ($index + 1) . ". Инструмент [{$step->tool}]: " . ($step->description ?? '') . "\n" .
@@ -280,11 +323,11 @@ PROMPT;
             return $response;
         } catch (\Exception $e) {
             Log::error("LoopController: Ошибка при формировании ответа", ['error' => $e->getMessage()]);
-            $errorMsg = "Не удалось сгенерировать ответ из-за таймаута или ошибки LLM.";
+            $errorMsg = "Извините, возникла техническая ошибка при подготовке ответа. Вот что удалось найти:\n\n" . $history;
             if (strpos($e->getMessage(), 'timeout') !== false) {
-                $errorMsg = "Превышено время ожидания ответа от ИИ (таймаут). Пожалуйста, попробуйте более простой запрос.";
+                $errorMsg = "Превышено время ожидания ответа от ИИ (таймаут). Вот собранная информация:\n\n" . $history;
             }
-            return "### Анализ выполнен\n{$finalThought}\n\n**Внимание:** {$errorMsg}\n\n**История действий:**\n" . $history;
+            return "### Анализ выполнен\n{$finalThought}\n\n**Внимание:** {$errorMsg}";
         }
     }
 }
