@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use Tests\TestCase;
 use App\Ai\Core\Reflector;
+use App\Ai\Tools\ToolRegistry;
 use App\Ai\DTO\Step;
 use Mockery;
 use App\Ai\Agents\CheapAnonymousAgent;
@@ -30,7 +31,7 @@ class ReflectorTest extends TestCase
             $jsonResponse
         ]);
 
-        $registry = Mockery::mock(ToolRegistry::class);
+        $registry = Mockery::mock(ToolRegistry::class)->makePartial();
         $registry->shouldReceive('getToolsDefinitions')->andReturn([]);
 
         $reflector = new Reflector($registry);
@@ -52,7 +53,7 @@ class ReflectorTest extends TestCase
             'Invalid JSON'
         ]);
 
-        $registry = Mockery::mock(ToolRegistry::class);
+        $registry = Mockery::mock(ToolRegistry::class)->makePartial();
         $registry->shouldReceive('getToolsDefinitions')->andReturn([]);
 
         $reflector = new Reflector($registry);
@@ -77,7 +78,7 @@ class ReflectorTest extends TestCase
             ])
         ]);
 
-        $registry = Mockery::mock(ToolRegistry::class);
+        $registry = Mockery::mock(ToolRegistry::class)->makePartial();
         $registry->shouldReceive('getToolsDefinitions')->andReturn([]);
 
         $reflector = new Reflector($registry);

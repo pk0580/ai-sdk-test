@@ -6,6 +6,7 @@ use App\Ai\Core\State\AgentState;
 use App\Ai\Events\Plan\StepCompleted;
 use App\Ai\Events\Plan\StepStarted;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 readonly class OrchestrationExecutor
 {
@@ -31,14 +32,29 @@ readonly class OrchestrationExecutor
 
         $agent = $this->agents[$step->agent];
 
-        $result = $agent->execute($state);
+        try {
+            $result = $agent->execute($state);
 
-        $state->context = $result;
-        $state->history[] = [
-            'agent' => $step->agent,
-            'task' => $step->task,
-            'result' => $result
-        ];
+            $state->context = $result;
+            $state->history[] = [
+                'agent' => $step->agent,
+                'task' => $step->task,
+                'result' => $result
+            ];
+        } catch (Exception $e) {
+            Log::error("OrchestrationExecutor: Ошибка при выполнении агента", [
+                'agent' => $step->agent,
+                'error' => $e->getMessage()
+            ]);
+
+            $state->history[] = [
+                'agent' => $step->agent,
+                'task' => $step->task,
+                'error' => $e->getMessage(),
+                'status' => 'failed'
+            ];
+            $state->context = "Ошибка при выполнении {$step->agent}: " . $e->getMessage();
+        }
 
         StepCompleted::dispatch($step, $state);
     }

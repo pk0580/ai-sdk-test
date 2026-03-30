@@ -52,7 +52,7 @@ class AgentLoggingTest extends TestCase
         ]);
 
         $planner = new Planner($toolRegistry);
-        $reflector = new Reflector();
+        $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry);
 
         // 2. Выполняем задачу

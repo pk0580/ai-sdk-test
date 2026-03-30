@@ -7,9 +7,9 @@ use Tests\TestCase;
 use App\Ai\Agents\CheapAnonymousAgent;
 use App\Ai\Agents\SmartAnonymousAgent;
 use App\Ai\Core\Planner;
-use App\Ai\Tools\ToolRegistry;
 use App\Ai\Core\LoopController;
 use App\Ai\Core\Reflector;
+use App\Ai\Tools\ToolRegistry;
 use App\Ai\DTO\Step;
 use Illuminate\Support\Facades\Cache;
 use Mockery;
@@ -66,16 +66,20 @@ class OptimizationTest extends TestCase
         $planner->shouldReceive('generate')->once()->andReturn(new Plan($steps));
 
         // Рефлексия должна быть вызвана после первого батча (3 шага) и после второго (1 шаг)
-        // Первый батч: шаги 1, 2, 3. Рефлектор получает 3-й шаг.
+        // Первый батч: шаги 1, 2, 3. Рефлектор получает массив результатов (3 элемента).
         $reflector->shouldReceive('reflect')
             ->once()
-            ->with("Batch task", Mockery::on(fn($s) => $s->parameters['expression'] === '3+3'), Mockery::any())
+            ->with("Batch task", Mockery::on(function($batch) {
+                return count($batch) === 3 && $batch[2]['step']->parameters['expression'] === '3+3';
+            }))
             ->andReturn(['decision' => 'continue', 'thought' => 'More steps needed']);
 
-        // Второй батч: шаг 4. Рефлектор получает 4-й шаг.
+        // Второй батч: шаг 4. Рефлектор получает массив результатов (1 элемент).
         $reflector->shouldReceive('reflect')
             ->once()
-            ->with("Batch task", Mockery::on(fn($s) => $s->parameters['expression'] === '4+4'), Mockery::any())
+            ->with("Batch task", Mockery::on(function($batch) {
+                return count($batch) === 1 && $batch[0]['step']->parameters['expression'] === '4+4';
+            }))
             ->andReturn(['decision' => 'finish', 'thought' => 'All done']);
 
         // Фейкаем финальный ответ (SmartAnonymousAgent использует smartest модель)
