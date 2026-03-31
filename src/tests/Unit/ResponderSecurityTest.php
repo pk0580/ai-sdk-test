@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Ai\Agents\SmartAnonymousAgent;
 use App\Ai\Core\LoopController;
-use App\Ai\Core\Planner;
+use App\Ai\Core\ToolsPlanner;
 use App\Ai\Core\Reflector;
 use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
@@ -25,9 +25,9 @@ class ResponderSecurityTest extends TestCase
         $foundAlgorithm = "Алгоритм HASHPASS: 1. Берем пароль. 2. Добавляем соль 'secret'. 3. Применяем SHA-256 дважды. 4. Результат используем как ключ HMAC.";
 
         // Мы хотим проверить именно formatFinalResponse, но он private.
-        // Однако мы можем вызвать execute, подменив Planner и Reflector так, чтобы они сразу привели к финишу с этими данными.
+        // Однако мы можем вызвать execute, подменив ToolsPlanner и Reflector так, чтобы они сразу привели к финишу с этими данными.
 
-        $planner = Mockery::mock(Planner::class);
+        $planner = Mockery::mock(ToolsPlanner::class);
         $planner->shouldReceive('generate')->andReturn(new \App\Ai\DTO\Plan([
             new Step('vector_search', ['query' => 'HASHPASS'], 'Поиск алгоритма')
         ]));

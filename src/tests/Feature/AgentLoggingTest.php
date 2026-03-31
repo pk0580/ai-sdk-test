@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 use App\Ai\Core\LoopController;
-use App\Ai\Core\Planner;
+use App\Ai\Core\ToolsPlanner;
 use App\Ai\Core\Reflector;
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Agents\CheapAnonymousAgent;
@@ -29,7 +29,7 @@ class AgentLoggingTest extends TestCase
         $toolRegistry->register('test_tool', $mockTool);
 
         CheapAnonymousAgent::fake([
-            // Planner
+            // ToolsPlanner
             json_encode([
                 'steps' => [
                     [
@@ -51,7 +51,7 @@ class AgentLoggingTest extends TestCase
             "Final Response"
         ]);
 
-        $planner = new Planner($toolRegistry);
+        $planner = new ToolsPlanner($toolRegistry);
         $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry);
 

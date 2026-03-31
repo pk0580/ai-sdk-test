@@ -33,8 +33,8 @@ class VectorStore
         $paragraphs = preg_split("/\n\s*\n/", $content);
         $chunks = [];
 
-        $maxChunkSize = 1000; // Character count (approximate tokens)
-        $overlapSize = 200;
+        $maxChunkSize = config('ai.vector_store.max_chunk_size', 1000);
+        $overlapSize = config('ai.vector_store.overlap_size', 200);
 
         foreach ($paragraphs as $paragraph) {
             $paragraph = trim($paragraph);
@@ -89,41 +89,33 @@ class VectorStore
     }
 
     /**
-     * Search for similar documents with deduplication (max N chunks per document).
+     * Search for similar documents with deduplication and noise filtering.
      */
-    public function search(string $query, int $limit = 50, int $perDocumentLimit = 2): Collection
+    public function search(string $query, int $limit = 5): Collection
     {
-        $queryText = Str::lower($query);
-        $queryText = str_replace(['расскажи', 'объясни', 'покажи', 'найди', 'информация'], '', $queryText);
-        $queryText = trim($queryText);
-
-        // Increase timeout for single embedding generation as well
         $embedding = $this->normalize(
-            Ai::embeddings([$queryText], null, null, 300)->first()
+            Ai::embeddings([$query], null, null, 300)->first()
         );
-        $vector = new Vector($embedding);
 
-        // Split into words for keyword matching (hybrid search)
-        $words = array_filter(explode(' ', $queryText), fn($w) => mb_strlen($w) > 3);
+        $vector = new Vector($embedding);
 
         $results = Document::query()
             ->select('*')
             ->selectRaw("embedding <=> ? as distance", [$vector])
-            ->nearestNeighbors('embedding', $vector, Distance::Cosine)
-            ->where(function ($q) use ($queryText, $words) {
-                // Exact match (phrase) or individual words match
-                $q->where('content', 'ILIKE', "%{$queryText}%");
-                foreach ($words as $word) {
-                    $q->orWhere('content', 'ILIKE', "%{$word}%");
-                }
-            })
-            ->limit($limit * 3) // Fetch more to allow for per-document limit
+            ->orderByRaw("embedding <=> ?", [$vector]) // важно!
+            ->limit(50)
             ->get();
 
-        return $results->groupBy(fn ($doc) => $doc->metadata['document_id'] ?? uniqid())
-            ->flatMap(fn ($docs) => $docs->take($perDocumentLimit))
-            ->sortBy('distance')
-            ->take($limit);
+        // ✅ 1. фильтр шума
+        $results = $results->filter(fn ($r) => $r->distance < 0.35);
+
+        // ✅ 2. dedup
+        $results = $results->unique('content');
+
+        // ✅ 3. сортировка
+        $results = $results->sortBy('distance');
+
+        return $results->take($limit);
     }
 
     private function extractTitle(string $content): string

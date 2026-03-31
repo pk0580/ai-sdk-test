@@ -2,6 +2,8 @@
 
 namespace App\Ai\Tools;
 
+use App\Ai\Core\QueryRewriter;
+use App\Ai\Core\Reranker;
 use App\Ai\Memory\VectorStore;
 use App\Models\Document;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -12,7 +14,9 @@ use Stringable;
 class VectorSearchTool implements Tool
 {
     public function __construct(
-        protected VectorStore $vectorStore
+        protected VectorStore $vectorStore,
+        protected QueryRewriter $rewriter,
+        protected Reranker $reranker
     ) {}
 
     /**
@@ -23,19 +27,22 @@ class VectorSearchTool implements Tool
         return 'Searches the knowledge base for relevant information about a specific query.';
     }
 
-    /**
-     * Execute the tool.
-     */
     public function handle(Request $request): Stringable|string
     {
         $query = $request->string('query');
-        $limit = $request->integer('limit', 3);
+        $limit = $request->integer('limit', 5); // ТЗ предлагает 5 по умолчанию в примере
 
         if (Document::count() === 0) {
             return "Knowledge base is empty. No documents have been indexed yet.";
         }
 
-        $results = $this->vectorStore->search($query, $limit);
+        // ✅ Query Rewriting
+        $rewrittenQuery = $this->rewriter->rewrite($query);
+
+        $results = $this->vectorStore->search($rewrittenQuery, 10); // Берем чуть больше для реранкера
+
+        // ✅ Reranking
+        $results = $this->reranker->rerank($rewrittenQuery, $results);
 
         if ($results->isEmpty()) {
             return "No relevant information found for the query: '{$query}'.";

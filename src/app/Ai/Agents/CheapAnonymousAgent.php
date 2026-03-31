@@ -12,6 +12,11 @@ use Laravel\Ai\Attributes\Timeout;
 #[Timeout(600)]
 class CheapAnonymousAgent extends AnonymousAgent
 {
+    public function __construct(string $instructions = '', iterable $messages = [], iterable $tools = [])
+    {
+        parent::__construct($instructions, $messages, $tools);
+    }
+
     public function model(): string
     {
         $defaultProvider = config('ai.default');

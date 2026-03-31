@@ -16,16 +16,21 @@ class Supervisor
 {
     private array $agents = [];
     private OrchestrationExecutor $executor;
+    private int $maxCycles = 5;
 
     public function __construct(
         ResearchAgent $researchAgent,
         SummaryAgent $summaryAgent,
-        private readonly DynamicPlannerInterface $planner
+        private readonly DynamicPlannerInterface $planner,
+        ?int $maxCycles = null
     ) {
         $this->agents['research'] = $researchAgent;
         $this->agents['summary'] = $summaryAgent;
 
         $this->executor = new OrchestrationExecutor($this->agents);
+        if ($maxCycles !== null) {
+            $this->maxCycles = $maxCycles;
+        }
     }
 
     /**
@@ -55,8 +60,10 @@ class Supervisor
      */
     private function runCycle(AgentState $state): void
     {
-        while ($state->step) {
-            Log::info("Supervisor: Выполнение шага", ['agent' => $state->step->agent]);
+        $cycleCount = 0;
+        while ($state->step && $cycleCount < $this->maxCycles) {
+            $cycleCount++;
+            Log::info("Supervisor: Выполнение шага {$cycleCount}", ['agent' => $state->step->agent]);
 
             $this->executor->runStep($state);
 
@@ -75,6 +82,12 @@ class Supervisor
             ]);
 
             $state->step = $nextStep;
+        }
+
+        if ($cycleCount >= $this->maxCycles && $state->step) {
+            Log::warning("Supervisor: Достигнут лимит циклов ({$this->maxCycles}). Принудительное завершение.");
+            $state->step = null;
+            $state->context = "Превышен лимит итераций планировщика ({$this->maxCycles}). Результат может быть неполным.";
         }
 
         WorkflowCompleted::dispatch($state);

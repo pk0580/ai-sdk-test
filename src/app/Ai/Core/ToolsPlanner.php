@@ -5,19 +5,17 @@ namespace App\Ai\Core;
 use App\Ai\DTO\Plan;
 use App\Ai\DTO\Step;
 use App\Ai\Tools\ToolRegistry;
+use App\Ai\Utils\JsonSanitizer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Ai\Agents\CheapAnonymousAgent;
 use Laravel\Ai\AnonymousAgent;
 
-class Planner
+class ToolsPlanner
 {
-    private ToolRegistry $toolRegistry;
-
-    public function __construct(ToolRegistry $toolRegistry)
-    {
-        $this->toolRegistry = $toolRegistry;
-    }
+    public function __construct(
+        private readonly ToolRegistry $toolRegistry
+    ) {}
 
     private function createAgent(string $instructions): AnonymousAgent
     {
@@ -53,7 +51,14 @@ class Planner
 
     private function getInstructions(): string
     {
-        $definitions = json_encode($this->toolRegistry->getToolsDefinitions(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $toolsDefinitions = $this->toolRegistry->getToolsDefinitions();
+        // Очищаем определения инструментов
+        array_walk_recursive($toolsDefinitions, function (&$item) {
+            if (is_string($item)) {
+                $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+            }
+        });
+        $definitions = json_encode($toolsDefinitions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         return <<<PROMPT
 Ты — ИИ-планировщик. Твоя задача — разбить запрос пользователя на минимально необходимую последовательность выполняемых шагов.
@@ -68,6 +73,8 @@ class Planner
    Если запрос пользователя выглядит как конкретный вопрос или цитата из документа, используй этот текст как поисковый запрос без существенных изменений.
 3. Если запрос требует комплексного ответа, начни с поиска информации.
 4. ОТВЕЧАЙ ТОЛЬКО JSON-ОБЪЕКТОМ. НИКАКИХ ПОЯСНЕНИЙ ДО ИЛИ ПОСЛЕ.
+5. ЗАПРЕЩЕНО выдумывать информацию, которой нет в базе знаний. Если `vector_search` вернул пустой результат или сообщение о пустой базе, НЕ пытайся продолжать поиск.
+6. Если база знаний пуста, дальнейший поиск по базе не имеет смысла. Сразу завершай планирование минимальным набором шагов.
 
 Ответ должен быть СТРОГО в формате JSON:
 {
@@ -84,7 +91,7 @@ PROMPT;
 
     public function generate(string $message): Plan
     {
-        Log::info("Планировщик: Генерирую план для сообщения", ['message' => $message]);
+        Log::info("Планировщик: Генерирую план для сообщения", ['message' => mb_convert_encoding($message, 'UTF-8', 'UTF-8')]);
 
         $cacheKey = 'ai_plan_' . md5($message . json_encode($this->toolRegistry->getToolsDefinitions()));
 
@@ -157,6 +164,10 @@ PROMPT;
         $jsonContent = preg_replace('/^```json\s*/i', '', $jsonContent);
         $jsonContent = preg_replace('/```$/', '', $jsonContent);
         $jsonContent = trim($jsonContent);
+
+        // Исправление неэкранированных управляющих символов (переносы строк, табы) внутри JSON строк
+        // Мы ищем содержимое внутри двойных кавычек и заменяем реальные переносы на \n
+        $jsonContent = JsonSanitizer::escapeControlCharacters($jsonContent);
 
         $data = json_decode($jsonContent, true);
 

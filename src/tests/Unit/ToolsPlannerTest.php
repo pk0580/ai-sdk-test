@@ -4,12 +4,12 @@ namespace Tests\Unit;
 
 use App\Ai\Agents\CheapAnonymousAgent;
 use Tests\TestCase;
-use App\Ai\Core\Planner;
+use App\Ai\Core\ToolsPlanner;
 use App\Ai\DTO\Plan;
 use Mockery;
 use App\Ai\Tools\ToolRegistry;
 
-class PlannerTest extends TestCase
+class ToolsPlannerTest extends TestCase
 {
     protected function tearDown(): void
     {
@@ -17,10 +17,10 @@ class PlannerTest extends TestCase
         parent::tearDown();
     }
 
-    protected function getPlanner(): Planner
+    protected function getPlanner(): ToolsPlanner
     {
         $registry = new ToolRegistry();
-        return new Planner($registry);
+        return new ToolsPlanner($registry);
     }
 
     public function test_planner_generates_correct_plan_on_success()
@@ -65,7 +65,7 @@ class PlannerTest extends TestCase
     {
         // Для симуляции ошибки (Exception) в AnonymousAgent::fake() можно передать Closure,
         // который выбрасывает исключение, но SDK обычно перехватывает его внутри prompt().
-        // Однако в нашем случае Planner перехватывает любое исключение.
+        // Однако в нашем случае ToolsPlanner перехватывает любое исключение.
 
         CheapAnonymousAgent::fake(function() {
             throw new \Exception('AI Error');

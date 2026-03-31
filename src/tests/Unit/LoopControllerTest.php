@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use Tests\TestCase;
 use App\Ai\Core\LoopController;
-use App\Ai\Core\Planner;
+use App\Ai\Core\ToolsPlanner;
 use App\Ai\Core\Reflector;
 use App\Ai\Tools\ToolRegistry;
 use App\Ai\Agents\CheapAnonymousAgent;
@@ -20,14 +20,14 @@ class LoopControllerTest extends TestCase
         $toolRegistry = new ToolRegistry();
         $mockTool = Mockery::mock(Tool::class);
         $mockTool->shouldReceive('handle')->andReturn('Tool result');
-        // Добавляем описание и схему, чтобы Planner не упал при генерации промпта (хотя мы его фейкаем)
+        // Добавляем описание и схему, чтобы ToolsPlanner не упал при генерации промпта (хотя мы его фейкаем)
         $mockTool->shouldReceive('description')->andReturn('Test tool description');
         $mockTool->shouldReceive('schema')->andReturn([]);
         $toolRegistry->register('test_tool', $mockTool);
 
         // 2. Настраиваем фейковые ответы для LLM (через CheapAnonymousAgent::fake и SmartAnonymousAgent::fake)
         CheapAnonymousAgent::fake([
-            // Ответ для Planner (начальный план)
+            // Ответ для ToolsPlanner (начальный план)
             json_encode([
                 'steps' => [
                     [
@@ -50,7 +50,7 @@ class LoopControllerTest extends TestCase
             "Final human-friendly response."
         ]);
 
-        $planner = new Planner($toolRegistry);
+        $planner = new ToolsPlanner($toolRegistry);
         $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry);
 
@@ -69,7 +69,7 @@ class LoopControllerTest extends TestCase
         $toolRegistry->register('test_tool', $mockTool);
 
         CheapAnonymousAgent::fake([
-            // 1. Planner response
+            // 1. ToolsPlanner response
             json_encode([
                 'steps' => [
                     ['tool' => 'test_tool', 'parameters' => ['step' => 1], 'description' => 'OrchestrationStep 1']
@@ -81,7 +81,7 @@ class LoopControllerTest extends TestCase
                 'thought' => 'Need more data.',
                 'next_suggestion' => 'Try test_tool again'
             ]),
-            // 3. Planner::parseStep response for next_suggestion
+            // 3. ToolsPlanner::parseStep response for next_suggestion
             json_encode([
                 'steps' => [
                     ['tool' => 'test_tool', 'parameters' => ['step' => 2], 'description' => 'Try test_tool again']
@@ -100,7 +100,7 @@ class LoopControllerTest extends TestCase
             "Multi-step final response."
         ]);
 
-        $planner = new Planner($toolRegistry);
+        $planner = new ToolsPlanner($toolRegistry);
         $reflector = new Reflector($toolRegistry);
         $controller = new LoopController($planner, $reflector, $toolRegistry, 3);
 

@@ -40,6 +40,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Vector Store Settings
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure how documents are chunked before being
+    | stored in your vector database.
+    |
+    */
+
+    'vector_store' => [
+        'max_chunk_size' => env('AI_VECTOR_STORE_MAX_CHUNK_SIZE', 1000),
+        'overlap_size' => env('AI_VECTOR_STORE_OVERLAP_SIZE', 200),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | AI Providers
     |--------------------------------------------------------------------------
     |

@@ -22,7 +22,7 @@ class MultiAgentTest extends TestCase
 
     public function test_supervisor_runs_dynamic_plan()
     {
-        // 1. Mock Dynamic Planner
+        // 1. Mock Dynamic ToolsPlanner
         $planner = Mockery::mock(DynamicPlannerInterface::class);
         $planner->shouldReceive('initialStep')
             ->once()

@@ -6,7 +6,7 @@ use App\Ai\DTO\Plan;
 use Tests\TestCase;
 use App\Ai\Agents\CheapAnonymousAgent;
 use App\Ai\Agents\SmartAnonymousAgent;
-use App\Ai\Core\Planner;
+use App\Ai\Core\ToolsPlanner;
 use App\Ai\Core\LoopController;
 use App\Ai\Core\Reflector;
 use App\Ai\Tools\ToolRegistry;
@@ -26,9 +26,9 @@ class OptimizationTest extends TestCase
     {
         Cache::flush();
         $toolRegistry = app(ToolRegistry::class);
-        $planner = new Planner($toolRegistry);
+        $planner = new ToolsPlanner($toolRegistry);
 
-        // Фейкаем LLM для Planner (CheapAnonymousAgent)
+        // Фейкаем LLM для ToolsPlanner (CheapAnonymousAgent)
         CheapAnonymousAgent::fake([
             ['steps' => [['tool' => 'calculator', 'parameters' => ['expression' => '2+2'], 'description' => 'Test OrchestrationStep']]]
         ]);
@@ -50,7 +50,7 @@ class OptimizationTest extends TestCase
 
     public function test_loop_controller_batches_steps()
     {
-        $planner = Mockery::mock(Planner::class);
+        $planner = Mockery::mock(ToolsPlanner::class);
         $reflector = Mockery::mock(Reflector::class);
         $toolRegistry = app(ToolRegistry::class);
 
