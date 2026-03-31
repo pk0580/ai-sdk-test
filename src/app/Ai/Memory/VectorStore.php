@@ -15,26 +15,58 @@ use Pgvector\Laravel\Distance;
  */
 class VectorStore
 {
-    /**
-     * Store a document, splitting it into chunks with metadata.
-     */
-    public function add(string $content, array $metadata = [], string $documentId = null): Collection
+    public function add(string $content, array $metadata = [], ?string $documentId = null): Collection
     {
-        $documentId = $documentId ?? uniqid();
-        $title = $metadata['title'] ?? $this->extractTitle($content);
+        $documentId = $documentId ?? (string) Str::uuid();
+        $title = $this->resolveTitle($content, $metadata);
 
-        if (empty($title) || $title === 'Документ' || $title === 'Без названия') {
-            $newTitle = $this->extractTitle($content);
-            if ($newTitle !== 'Без названия') {
-                $title = $newTitle;
+        $finalChunks = $this->prepareChunks($content, $title);
+
+        // Increase timeout for large batches to avoid Ollama cURL 28 timeouts
+        $response = Ai::embeddings($finalChunks, null, null, 300);
+        $embeddings = $response->embeddings;
+
+        return collect($finalChunks)->map(function ($chunk, $index) use ($documentId, $metadata, $embeddings, $response) {
+            return Document::create([
+                'content' => $chunk,
+                'metadata' => array_merge($metadata, [
+                    'document_id' => $documentId,
+                    'chunk_index' => $index,
+                ]),
+                'embedding' => new Vector(
+                    $this->normalize($embeddings[$index] ?? $response->first())
+                ),
+            ]);
+        });
+    }
+
+    /**
+     * Resolve the title from metadata or content.
+     */
+    private function resolveTitle(string $content, array $metadata): string
+    {
+        $title = $metadata['title'] ?? '';
+
+        if (empty($title) || in_array($title, ['Документ', 'Без названия'], true)) {
+            $extracted = $this->extractTitle($content);
+            if ($extracted !== 'Без названия') {
+                return $extracted;
             }
         }
 
-        $paragraphs = preg_split("/\n\s*\n/", $content);
-        $chunks = [];
+        return $title ?: 'Без названия';
+    }
 
+    /**
+     * Split content into chunks with title prefix.
+     */
+    private function prepareChunks(string $content, string $title): array
+    {
         $maxChunkSize = config('ai.vector_store.max_chunk_size', 1000);
         $overlapSize = config('ai.vector_store.overlap_size', 200);
+
+        $paragraphs = preg_split("/\n\s*\n/", $content);
+        $chunks = ["Документ: {$title}"];
 
         foreach ($paragraphs as $paragraph) {
             $paragraph = trim($paragraph);
@@ -45,47 +77,33 @@ class VectorStore
             if (mb_strlen($paragraph) <= $maxChunkSize) {
                 $chunks[] = "Документ: {$title}\n\n" . $paragraph;
             } else {
-                // Split large paragraph into smaller chunks with overlap
-                $start = 0;
-                while ($start < mb_strlen($paragraph)) {
-                    $chunk = mb_substr($paragraph, $start, $maxChunkSize);
-                    $chunks[] = "Документ: {$title}\n\n" . $chunk;
-                    $start += ($maxChunkSize - $overlapSize);
-
-                    // Avoid tiny last chunk
-                    if (mb_strlen($paragraph) - $start < $overlapSize) {
-                        break;
-                    }
-                }
+                $chunks = array_merge($chunks, $this->splitLongParagraph($paragraph, $title, $maxChunkSize, $overlapSize));
             }
         }
 
-        $finalChunks = [];
-        $finalChunks[] = "Документ: {$title}";
+        return $chunks;
+    }
 
-        foreach ($chunks as $chunk) {
-            $finalChunks[] = $chunk;
+    /**
+     * Split a long paragraph into chunks with overlap.
+     */
+    private function splitLongParagraph(string $paragraph, string $title, int $maxSize, int $overlap): array
+    {
+        $chunks = [];
+        $start = 0;
+        $length = mb_strlen($paragraph);
+
+        while ($start < $length) {
+            $chunk = mb_substr($paragraph, $start, $maxSize);
+            $chunks[] = "Документ: {$title}\n\n" . $chunk;
+            $start += ($maxSize - $overlap);
+
+            if ($length - $start < $overlap) {
+                break;
+            }
         }
 
-        // Increase timeout for large batches to avoid Ollama cURL 28 timeouts
-        $response = Ai::embeddings($finalChunks, null, null, 300);
-        $embeddings = $response->embeddings; // array<int, array<float>>
-        $storedDocuments = new Collection();
-
-        foreach ($finalChunks as $index => $chunk) {
-            $storedDocuments->add(Document::create([
-                'content' => $chunk,
-                'metadata' => array_merge($metadata, [
-                    'document_id' => $documentId,
-                    'chunk_index' => $index,
-                ]),
-                'embedding' => new Vector(
-                    $this->normalize($embeddings[$index] ?? $response->first())
-                ),
-            ]));
-        }
-
-        return $storedDocuments;
+        return $chunks;
     }
 
     /**
@@ -107,7 +125,7 @@ class VectorStore
             ->get();
 
         // ✅ 1. фильтр шума
-        $results = $results->filter(fn ($r) => $r->distance < 0.35);
+        $results = $results->filter(fn ($r) => $r->distance < 0.65);
 
         // ✅ 2. dedup
         $results = $results->unique('content');

@@ -67,7 +67,11 @@ class RagTest extends TestCase
     public function test_vector_search_tool_returns_formatted_results()
     {
         Ai::fakeEmbeddings(function ($inputs) {
-            return array_map(fn() => array_fill(0, 768, 0.1), $inputs);
+            return array_map(function ($input) {
+                $isDoc = str_contains(strtolower($input), 'doc');
+
+                return array_fill(0, 768, $isDoc ? 1.0 : 0.1);
+            }, $inputs);
         });
 
         $store = new VectorStore();

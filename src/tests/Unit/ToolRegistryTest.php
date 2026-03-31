@@ -2,6 +2,8 @@
 
 namespace Tests\Unit;
 
+use App\Ai\Core\QueryRewriter;
+use App\Ai\Core\Reranker;
 use App\Ai\Memory\VectorStore;
 use App\Ai\Tools\VectorSearchTool;
 use PHPUnit\Framework\TestCase;
@@ -50,7 +52,10 @@ class ToolRegistryTest extends TestCase
     {
         $registry = new ToolRegistry();
         $mockStore = $this->createMock(VectorStore::class);
-        $registry->register('vector_search', new VectorSearchTool($mockStore));
+        $mockRewriter = $this->createMock(QueryRewriter::class);
+        $mockReranker = $this->createMock(Reranker::class);
+
+        $registry->register('vector_search', new VectorSearchTool($mockStore, $mockRewriter, $mockReranker));
 
         $definitions = $registry->getToolsDefinitions();
 
