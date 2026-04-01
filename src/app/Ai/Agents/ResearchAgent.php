@@ -41,7 +41,14 @@ class ResearchAgent extends BaseAgent
             if (!empty($task->history)) {
                 $history = "\n\nРанее было выполнено:\n";
                 foreach ($task->history as $entry) {
-                    $history .= "- Задача: {$entry['task']}\n  Результат: " . substr($entry['result'], 0, 200) . "...\n";
+                    $resultText = $entry['result'] ?? '';
+                    // Если в результате есть важная метка, сохраняем её
+                    if (str_contains($resultText, '[RESEARCH_FINISHED]')) {
+                        $resultText = "[RESEARCH_FINISHED] ... " . mb_substr($resultText, -150);
+                    } else {
+                        $resultText = mb_substr($resultText, 0, 200) . "...";
+                    }
+                    $history .= "- Задача: {$entry['task']}\n  Результат: {$resultText}\n";
                 }
             }
             $input = $instruction . $history;

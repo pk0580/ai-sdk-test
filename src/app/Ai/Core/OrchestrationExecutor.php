@@ -5,6 +5,7 @@ namespace App\Ai\Core;
 use App\Ai\Core\State\AgentState;
 use App\Ai\Events\Plan\StepCompleted;
 use App\Ai\Events\Plan\StepStarted;
+use App\Ai\Utils\JsonSanitizer;
 use Exception;
 use Illuminate\Support\Facades\Log;
 
@@ -34,6 +35,16 @@ readonly class OrchestrationExecutor
 
         try {
             $result = $agent->execute($state);
+
+            if (is_string($result)) {
+                $result = JsonSanitizer::sanitizeUtf8($result);
+            } elseif (is_array($result)) {
+                array_walk_recursive($result, function (&$item) {
+                    if (is_string($item)) {
+                        $item = JsonSanitizer::sanitizeUtf8($item);
+                    }
+                });
+            }
 
             $state->context = $result;
             $state->history[] = [

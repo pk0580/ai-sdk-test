@@ -9,6 +9,7 @@ use App\Ai\Events\StepCompleted;
 use App\Ai\Events\ToolCalled;
 use App\Ai\Events\ToolResultReceived;
 use App\Ai\Tools\ToolRegistry;
+use App\Ai\Utils\JsonSanitizer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Ai\Agents\SmartAnonymousAgent;
@@ -76,6 +77,8 @@ class LoopController
         $this->executedSteps = [];
         $this->seenResults = [];
 
+        $userMessage = JsonSanitizer::sanitizeUtf8($userMessage);
+
         Log::info("LoopController: Начало выполнения [{$this->sessionId}]", ['message' => $userMessage]);
 
         $plan = $this->planner->generate($userMessage);
@@ -103,7 +106,7 @@ class LoopController
 
             if ($reflection['decision'] === 'finish') {
                 Log::info("LoopController: Рефлектор решил завершить.");
-                return $this->formatFinalResponse($userMessage, $this->executedSteps, $reflection['thought']);
+                return $this->formatFinalResponse($userMessage, $this->executedSteps, "[RESEARCH_FINISHED] " . $reflection['thought']);
             }
 
             if ($reflection['decision'] === 'continue' && isset($reflection['next_suggestion'])) {
@@ -220,7 +223,25 @@ class LoopController
     {
         $startTime = microtime(true);
 
-        $reflection = $this->reflector->reflect($userMessage, $batchResults);
+        $userMessage = JsonSanitizer::sanitizeUtf8($userMessage);
+
+        // Очистка результатов в пакете перед рефлексией
+        $sanitizedResults = array_map(function ($resultData) {
+            if (isset($resultData['result'])) {
+                if (is_string($resultData['result'])) {
+                    $resultData['result'] = JsonSanitizer::sanitizeUtf8($resultData['result']);
+                } elseif (is_array($resultData['result'])) {
+                    array_walk_recursive($resultData['result'], function (&$item) {
+                        if (is_string($item)) {
+                            $item = JsonSanitizer::sanitizeUtf8($item);
+                        }
+                    });
+                }
+            }
+            return $resultData;
+        }, $batchResults);
+
+        $reflection = $this->reflector->reflect($userMessage, $sanitizedResults);
         $latency = microtime(true) - $startTime;
 
         ReflectionGenerated::dispatch(

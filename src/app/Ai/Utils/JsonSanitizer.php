@@ -15,4 +15,12 @@ class JsonSanitizer
             return str_replace(["\n", "\r", "\t"], ['\n', '\r', '\t'], $matches[0]);
         }, $json);
     }
+
+    /**
+     * Очищает строку от некорректных UTF-8 символов.
+     */
+    public static function sanitizeUtf8(string $text): string
+    {
+        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+    }
 }

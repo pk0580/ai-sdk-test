@@ -43,13 +43,13 @@ class Reflector
 
 ПРАВИЛА:
 
-1. Если найдено ХОТЯ БЫ ЧАСТИЧНОЕ объяснение — ЗАВЕРШИ.
-2. НЕ ищи идеальный ответ.
+1. Если найдено объяснение или основные данные — ЗАВЕРШИ (finish). Не запрашивай продолжение, если информация уже в истории.
+2. НЕ ищи идеальный ответ до бесконечности.
 3. Если есть:
    - алгоритм
    - формула
    - описание процесса
-   → этого ДОСТАТОЧНО
+   → этого ДОСТАТОЧНО (decision: finish).
 
 4. Если данные повторяются — ЗАВЕРШИ
 5. Если нет новых данных — ЗАВЕРШИ
@@ -70,13 +70,16 @@ PROMPT;
 
         // Проверяем на пустую базу ДО вызова LLM, чтобы сэкономить токены и гарантировать результат
         foreach ($batchResults as $item) {
-            if (isset($item['result']) && is_string($item['result']) && str_contains($item['result'], "Knowledge base is empty")) {
-                Log::info("Reflector: Обнаружена пустая база знаний. Принудительное завершение.");
-                return [
-                    'decision' => 'finish',
-                    'thought' => "Knowledge Base пуста и не содержит необходимой информации. Поиск невозможен.",
-                    'next_suggestion' => null
-                ];
+            if (isset($item['result']) && is_string($item['result'])) {
+                $res = $item['result'];
+                if (str_contains($res, "Knowledge base is empty") || str_contains($res, "No relevant information found")) {
+                    Log::info("Reflector: Обнаружен пустой результат поиска. Принудительное завершение.", ['result' => $res]);
+                    return [
+                        'decision' => 'finish',
+                        'thought' => "Поиск по базе знаний не дал результатов: " . $res . ". Дальнейший поиск нецелесообразен.",
+                        'next_suggestion' => null
+                    ];
+                }
             }
         }
 

@@ -19,17 +19,19 @@ class DynamicPlanner implements DynamicPlannerInterface
     2. summary — мастер синтеза и выводов. Используй его в конце процесса для формирования итогового ответа на основе всех собранных данных research.
 
     ПРАВИЛА ПРИНЯТИЯ РЕШЕНИЙ:
-    - Если в истории уже есть результаты от research, но их недостаточно для полного ответа, запусти research снова с уточняющим заданием.
+    - Если в истории уже есть результаты от research, и в них содержится метка [RESEARCH_FINISHED], это означает, что агент по поиску информации считает свою работу завершенной и данных достаточно. В этом случае ЗАПРЕЩЕНО запускать research повторно. Сразу переходи к summary или finish.
+    - Если в истории уже есть результаты от research, но их явно недостаточно для полного ответа (нет метки [RESEARCH_FINISHED]), запусти research снова с уточняющим заданием.
     - Если в истории зафиксирована ОШИБКА (error), проанализируй её. Если ошибка временная (например, лимит или сбой инструмента), попробуй повторить шаг. Если ошибка логическая (инструмент не понимает запрос), предложи ДРУГОЙ подход или перефразируй задание.
     - Если все необходимые данные собраны, запусти summary для финального обобщения.
     - Если summary уже выполнил свою работу и представил качественный отчет, верни JSON с finish: true.
     - Если история пуста, начни с research.
-    - ЕСЛИ В ИСТОРИИ ПОВТОРЯЮТСЯ ОДНИ И ТЕ ЖЕ ОШИБКИ БОЛЕЕ 2 РАЗ, ПРЕКРАТИ RESEARCH И ВЫЗОВИ SUMMARY С ТЕМ, ЧТО ЕСТЬ.
+    - ЕСЛИ В ИСТОРИИ БОЛЕЕ 2 РАЗ ПОВТОРЯЕТСЯ ОДНА И ТА ЖЕ ОШИБКА, ПРЕКРАТИ RESEARCH И ВЫЗОВИ SUMMARY С ТЕМ, ЧТО ЕСТЬ.
 
     ОГРАНИЧЕНИЯ И ГАЛЛЮЦИНАЦИИ:
     - ТЫ ДОЛЖЕН ОТВЕЧАТЬ ТОЛЬКО НА ОСНОВЕ ПРЕДОСТАВЛЕННЫХ ДАННЫХ ИЗ ИСТОРИИ И КОНТЕКСТА.
     - ЗАПРЕЩЕНО выдумывать факты, которых нет в базе знаний.
     - Если база знаний пуста (`Knowledge base is empty`) или информация не найдена (`No relevant information found`), НЕ ПЫТАЙСЯ продолжать поиск по этой же теме. Сразу запускай summary, чтобы он сообщил пользователю об отсутствии информации.
+    - ЕСЛИ В ИСТОРИИ БОЛЕЕ 2 РАЗ ПОВТОРЯЕТСЯ СООБЩЕНИЕ ОБ ОТСУТСТВИИ РЕЗУЛЬТАТОВ ПОИСКА, ТЫ ДОЛЖЕН ПРЕКРАТИТЬ RESEARCH.
 
     ФОРМАТ ОТВЕТА (ТОЛЬКО JSON):
     Для следующего шага:
@@ -53,6 +55,43 @@ class DynamicPlanner implements DynamicPlannerInterface
     public function nextStep(AgentState $state): ?OrchestrationStep
     {
         try {
+            // ПРОВЕРКА: Если в истории уже есть [RESEARCH_FINISHED] или явные признаки отсутствия данных, то research больше не нужен.
+            $hasResearchFinished = false;
+            $emptyResultsCount = 0;
+            $hasSummary = false;
+
+            foreach ($state->history as $entry) {
+                if (isset($entry['agent']) && $entry['agent'] === 'summary') {
+                    $hasSummary = true;
+                    break;
+                }
+
+                if (!isset($entry['result']) || !is_string($entry['result'])) {
+                    continue;
+                }
+
+                $res = $entry['result'];
+                if (str_contains($res, '[RESEARCH_FINISHED]')) {
+                    $hasResearchFinished = true;
+                }
+
+                if (str_contains($res, "Knowledge base is empty") || str_contains($res, "No relevant information found")) {
+                    $emptyResultsCount++;
+                }
+            }
+
+            // Если summary уже выполнен, завершаем цепочку
+            if ($hasSummary) {
+                Log::info("DynamicPlanner: Summary уже выполнен. Завершаем цепочку.");
+                return null;
+            }
+
+            // Если данные не найдены, переключаемся на summary
+            if ($emptyResultsCount > 0) {
+                Log::info("DynamicPlanner: Обнаружены пустые результаты поиска ({$emptyResultsCount}). Переключаемся на summary.");
+                return new OrchestrationStep('summary', "Сообщи пользователю, что информация не найдена: " . $state->input);
+            }
+
             $message = $this->buildPromptMessage($state);
 
             /** @var PlannerAgent $agent */
@@ -70,8 +109,16 @@ class DynamicPlanner implements DynamicPlannerInterface
             }
 
             if (isset($data['next_step']['agent'], $data['next_step']['task'])) {
+                $suggestedAgent = $data['next_step']['agent'];
+
+                // Если LLM предлагает research после того, как он уже помечен как завершенный
+                if ($hasResearchFinished && $suggestedAgent === 'research') {
+                    Log::info("DynamicPlanner: LLM предложила research повторно, несмотря на [RESEARCH_FINISHED]. Переключаемся на summary.");
+                    return new OrchestrationStep('summary', "Подведи итог на основе уже собранных данных: " . $state->input);
+                }
+
                 return new OrchestrationStep(
-                    $data['next_step']['agent'],
+                    $suggestedAgent,
                     $data['next_step']['task']
                 );
             }
@@ -85,13 +132,15 @@ class DynamicPlanner implements DynamicPlannerInterface
 
     private function buildPromptMessage(AgentState $state): string
     {
-        $history = $this->sanitize($state->history);
+        $input = JsonSanitizer::sanitizeUtf8($state->input);
+
+        $history = $this->sanitizeData($state->history);
         $historyText = json_encode($history, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         $currentContext = $state->context ?: 'Контекст пуст';
-        $currentContext = is_string($currentContext) ? $this->sanitize($currentContext) : $currentContext;
+        $currentContext = is_string($currentContext) ? JsonSanitizer::sanitizeUtf8($currentContext) : $currentContext;
 
-        return "ИСХОДНЫЙ ЗАПРОС: {$state->input}\n\n" .
+        return "ИСХОДНЫЙ ЗАПРОС: {$input}\n\n" .
                "ТЕКУЩИЙ КОНТЕКСТ (последний результат): {$currentContext}\n\n" .
                "ИСТОРИЯ ВЫПОЛНЕНИЯ:\n{$historyText}";
     }
@@ -122,19 +171,19 @@ class DynamicPlanner implements DynamicPlannerInterface
         return $data;
     }
 
-    private function sanitize(mixed $data): mixed
+    private function sanitizeData(mixed $data): mixed
     {
         if (is_array($data)) {
             array_walk_recursive($data, function (&$item) {
                 if (is_string($item)) {
-                    $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+                    $item = JsonSanitizer::sanitizeUtf8($item);
                 }
             });
             return $data;
         }
 
         if (is_string($data)) {
-            return mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+            return JsonSanitizer::sanitizeUtf8($data);
         }
 
         return $data;
