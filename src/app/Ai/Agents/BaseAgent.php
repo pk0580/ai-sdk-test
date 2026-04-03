@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Ai\Core\State\AgentState;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
@@ -49,7 +50,7 @@ abstract class BaseAgent implements Agent, Conversational, HasTools
         return [];
     }
 
-    public function ask(string $message): string
+    public function ask(string $message, ?string $sessionId = null): string
     {
         Log::info("Agent [{$this->name}]: Обработка сообщения", ['message' => $message]);
 

@@ -6,6 +6,8 @@ use App\Ai\Core\Interfaces\DynamicPlannerInterface;
 use App\Ai\Events\Workflow\StepPlanned;
 use App\Ai\Events\Workflow\StepRequested;
 use App\Ai\Events\Workflow\WorkflowCompleted;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class PlanNextStepListener
 {

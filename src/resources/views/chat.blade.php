@@ -30,7 +30,6 @@
         <button id="btn-stream" class="btn btn-success">Стрим (stream)</button>
         <button id="btn-queue" class="btn btn-warning">Очередь (queue)</button>
         <button id="btn-broadcast" class="btn btn-info">Вещание (broadcast)</button>
-        <button id="btn-cancel" class="btn btn-danger d-none">Остановить</button>
     </div>
 
     <div class="mb-3">
@@ -42,72 +41,97 @@
 <script>
     const output = document.getElementById('output');
     const messageInput = document.getElementById('message');
-    const btnCancel = document.getElementById('btn-cancel');
     let currentSessionId = null;
 
     function appendOutput(text, clear = false) {
         if (clear) output.innerText = '';
         output.innerText += text;
         output.scrollTop = output.scrollHeight;
-    }
-
-    function toggleCancelButton(show) {
-        if (show) {
-            btnCancel.classList.remove('d-none');
-        } else {
-            btnCancel.classList.add('d-none');
+        if (currentSessionId) {
+             const sessionInfo = document.getElementById('session-info') || createSessionInfo();
+             sessionInfo.innerText = 'Active Session: ' + currentSessionId;
         }
     }
 
-    // --- Остановка запроса ---
-    btnCancel.addEventListener('click', async () => {
-        if (!currentSessionId) return;
-        appendOutput('\n[Система] Отправка сигнала остановки...\n');
-        try {
-            await fetch('/cancel', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({ session_id: currentSessionId })
-            });
-        } catch (err) {
-            console.error('Cancel failed:', err);
-        }
-    });
+    function createSessionInfo() {
+        const div = document.createElement('div');
+        div.id = 'session-info';
+        div.className = 'text-muted small mb-2';
+        output.parentNode.insertBefore(div, output);
+        return div;
+    }
+
 
     // --- Обычный запрос ---
     document.getElementById('btn-chat').addEventListener('click', async () => {
         appendOutput('Отправка обычного запроса...\n', true);
-        const response = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({ message: messageInput.value })
-        });
-        const data = await response.json();
-        appendOutput('\n--- Ответ ---\n' + data.response);
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ message: messageInput.value })
+            });
+            const data = await response.json();
+            appendOutput('\n--- Запуск (Sync) ---\n');
+            appendOutput(`Статус: ${data.message || 'Started'}\n`);
+            appendOutput(`Session ID: ${data.session_id}\n`);
+            appendOutput(`Ввод: ${data.input}\n`);
+            appendOutput('\n[Примечание] Результаты в синхронном режиме не возвращаются напрямую. Используйте "Стрим" для получения ответа в реальном времени.');
+        } catch (err) {
+            console.error('Chat request failed:', err);
+            appendOutput('\n[Система] Ошибка: ' + err.message + '\n');
+        }
     });
 
     // --- Стриминг ---
     document.getElementById('btn-stream').addEventListener('click', () => {
-        appendOutput('Запуск процесса (Supervisor Chain)...\n', true);
-        toggleCancelButton(true);
+        appendOutput('Инициализация соединения...\n', true);
+        const btns = ['btn-chat', 'btn-stream', 'btn-queue', 'btn-broadcast'];
+        btns.forEach(id => document.getElementById(id).setAttribute('disabled', 'true'));
+
+        currentSessionId = null; // Сбрасываем старый ID перед началом нового стрима
         const msg = encodeURIComponent(messageInput.value);
         const eventSource = new EventSource(`/stream?message=${msg}`);
 
+        eventSource.onopen = function() {
+            appendOutput('[Система] Соединение установлено. Ожидание ответа сервера...\n');
+        };
+
+        const cleanup = () => {
+            eventSource.close();
+            btns.forEach(id => document.getElementById(id).removeAttribute('disabled'));
+        };
+
         eventSource.onmessage = function(e) {
             if (e.data === '[DONE]') {
-                eventSource.close();
-                toggleCancelButton(false);
-                currentSessionId = null;
+                cleanup();
                 appendOutput('\n--- Процесс завершен ---');
+                if (document.getElementById('session-info')) {
+                    document.getElementById('session-info').innerText = 'Session finished: ' + currentSessionId;
+                }
+                currentSessionId = null;
             } else {
                 try {
                     const data = JSON.parse(e.data);
 
                     // Сохраняем sessionId для возможности отмены
-                    if (data.session_id) {
+                    let sessionIdFound = false;
+                    if (data.type === 'session_id') {
+                        currentSessionId = data.content;
+                        sessionIdFound = true;
+                        console.log('Session ID received (type: session_id):', currentSessionId);
+                    } else if (data.session_id) {
                         currentSessionId = data.session_id;
+                        sessionIdFound = true;
+                        console.log('Session ID received (data.session_id):', currentSessionId);
                     } else if (data.content && data.content.session_id) {
                          currentSessionId = data.content.session_id;
+                         sessionIdFound = true;
+                         console.log('Session ID received (data.content.session_id):', currentSessionId);
+                    }
+
+                    if (sessionIdFound && currentSessionId) {
+                        appendOutput(`[Система] Сессия: ${currentSessionId}\n`);
                     }
 
                     handleStreamEvent(data);
@@ -119,10 +143,9 @@
 
         eventSource.onerror = function(e) {
             console.error('EventSource failed:', e);
-            eventSource.close();
-            toggleCancelButton(false);
+            cleanup();
             currentSessionId = null;
-            appendOutput('\n--- Ошибка стрима ---');
+            appendOutput('\n--- Ошибка стрима (возможно соединение разорвано) ---');
         };
     });
 
@@ -166,6 +189,9 @@
             case 'text': // Fallback для старого формата
                 appendOutput(content || '');
                 break;
+            case 'session_id':
+                console.log('Processed session_id event:', content);
+                break;
             default:
                 console.warn('Unknown event type:', type, content);
         }
@@ -174,13 +200,21 @@
     // --- Очередь ---
     document.getElementById('btn-queue').addEventListener('click', async () => {
         appendOutput('Постановка в очередь...\n', true);
-        const response = await fetch('/queue', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({ message: messageInput.value })
-        });
-        const data = await response.json();
-        appendOutput(`Статус: ${data.message}\nJob ID: ${data.job_id}`);
+        const btn = document.getElementById('btn-queue');
+        btn.setAttribute('disabled', 'true');
+        try {
+            const response = await fetch('/queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ message: messageInput.value })
+            });
+            const data = await response.json();
+            appendOutput(`Статус: ${data.message}\nJob ID: ${data.job_id}\n`);
+        } catch (err) {
+            appendOutput(`\n[Система] Ошибка: ${err.message}\n`);
+        } finally {
+            btn.removeAttribute('disabled');
+        }
     });
 
     // --- Вещание ---
@@ -188,13 +222,21 @@
         appendOutput('Запуск вещания (broadcastNow)...\n', true);
         appendOutput('Внимание: Для реального получения через Broadcast нужен Echo/Pusher.\nЗдесь мы просто инициируем событие.\n\n');
 
-        const response = await fetch('/broadcast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: JSON.stringify({ message: messageInput.value })
-        });
-        const data = await response.json();
-        appendOutput(`Статус: ${data.message}`);
+        const btn = document.getElementById('btn-broadcast');
+        btn.setAttribute('disabled', 'true');
+        try {
+            const response = await fetch('/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ message: messageInput.value })
+            });
+            const data = await response.json();
+            appendOutput(`Статус: ${data.message}\n`);
+        } catch (err) {
+            appendOutput(`\n[Система] Ошибка: ${err.message}\n`);
+        } finally {
+            btn.removeAttribute('disabled');
+        }
     });
 </script>
 </body>

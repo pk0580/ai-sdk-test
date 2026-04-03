@@ -11,13 +11,14 @@ class Supervisor
 {
     /**
      * @param string $userMessage
+     * @param string|null $sessionId
      * @return AgentState
      */
-    public function handle(string $userMessage): AgentState
+    public function handle(string $userMessage, ?string $sessionId = null): AgentState
     {
-        Log::info("Supervisor: Запуск Workflow", ['message' => $userMessage]);
+        Log::info("Supervisor: Запуск Workflow", ['message' => $userMessage, 'session_id' => $sessionId]);
 
-        $state = AgentState::init($userMessage);
+        $state = AgentState::init($userMessage, $sessionId);
 
         WorkflowStarted::dispatch($state);
         StepRequested::dispatch($state);

@@ -6,6 +6,9 @@ use App\Ai\Core\AgentRegistry;
 use App\Ai\Events\Workflow\StepCompleted;
 use App\Ai\Events\Workflow\StepExecuting;
 use App\Ai\Events\Workflow\StepPlanned;
+use App\Ai\Events\Workflow\WorkflowCompleted;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ExecuteStepListener
@@ -19,7 +22,7 @@ class ExecuteStepListener
         $state = $event->state;
         $step = $event->step;
 
-        \Illuminate\Support\Facades\Log::info("ExecuteStepListener: Запуск агента [{$step->agent}] для задачи: {$step->task}");
+        Log::info("ExecuteStepListener: Запуск агента [{$step->agent}] для задачи: {$step->task}");
 
         StepExecuting::dispatch($state, $step);
 

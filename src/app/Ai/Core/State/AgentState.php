@@ -11,11 +11,13 @@ class AgentState
         public ?Step $step = null,
         public ?string $context = null,
         public array $history = [],
+        public ?string $sessionId = null,
     ) {}
 
-    public static function init(string $input): self
+    public static function init(string $input, ?string $sessionId = null): self
     {
-        return new self(input: $input);
+        $sessionId = $sessionId ?? uniqid('sess_', true);
+        return new self(input: $input, sessionId: $sessionId);
     }
 
     public function withStepResult(Step $step, string $result, bool $success): self
@@ -33,7 +35,8 @@ class AgentState
             input: $this->input,
             step: null, // Очищаем текущий шаг, так как он завершен
             context: $this->context,
-            history: $newHistory
+            history: $newHistory,
+            sessionId: $this->sessionId,
         );
     }
 

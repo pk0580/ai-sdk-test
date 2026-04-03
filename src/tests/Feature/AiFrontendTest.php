@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Events\Workflow\StepPlanned;
+use App\Ai\Events\Workflow\WorkflowCompleted;
 use Tests\TestCase;
 use App\Ai\Agents\SummaryAgent;
 use App\Ai\Agents\CheapAnonymousAgent;
@@ -23,10 +25,11 @@ class AiFrontendTest extends TestCase
     public function test_chat_method_returns_json(): void
     {
         Event::fake();
-        $response = $this->post('/chat', ['message' => 'Hello']);
+        $response = $this->post('/chat', ['message' => 'Hello', 'session_id' => 'test_123']);
         $response->assertStatus(200);
-        $response->assertJsonStructure(['message', 'input']);
+        $response->assertJsonStructure(['message', 'input', 'session_id']);
         $this->assertEquals('Hello', $response->json('input'));
+        $this->assertEquals('test_123', $response->json('session_id'));
     }
 
     public function test_stream_method_returns_streamed_response(): void
@@ -43,5 +46,12 @@ class AiFrontendTest extends TestCase
         $response = $this->post('/queue', ['message' => 'Hello']);
         $response->assertStatus(200);
         $response->assertJsonStructure(['message', 'job_id']);
+    }
+
+    public function test_chat_validation_fails_without_message(): void
+    {
+        $response = $this->postJson('/chat', ['session_id' => 'test_123']);
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['message']);
     }
 }
