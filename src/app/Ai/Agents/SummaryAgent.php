@@ -35,23 +35,18 @@ class SummaryAgent extends BaseAgent
             ?? 'gpt-4o';
     }
 
-    public function execute(string|AgentState $task): string
+    public function execute(string $task, AgentState $state): string
     {
-        if ($task instanceof AgentState) {
-            $input = "Исходный вопрос: " . $task->input . "\n\n";
-            $input .= "Собранные данные:\n";
-            foreach ($task->history as $entry) {
-                if ($entry['agent'] === 'research') {
-                    $input .= "- " . $entry['result'] . "\n";
-                }
+        $input = "Исходный вопрос: " . $state->input . "\n\n";
+        $input .= "Собранные данные:\n";
+        foreach ($state->history as $entry) {
+            if ($entry['agent'] === 'research' && $entry['success']) {
+                $input .= "- " . $entry['result'] . "\n";
             }
-        } else {
-            $input = $task;
         }
 
         Log::info("SummaryAgent: Создание саммари", ['input_length' => strlen($input)]);
 
-        // SummaryAgent может просто отвечать напрямую, так как его задача - синтез
-        return $this->ask("Создай структурированный отчет на основе следующих данных: \n\n" . $input);
+        return $this->ask("Создай структурированный отчет на основе следующих данных: \n\n" . $input . "\n\nЗадание: " . $task);
     }
 }

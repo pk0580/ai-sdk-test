@@ -81,5 +81,21 @@ class ToolRegistryTest extends TestCase
         $request = new Request(['expression' => '(10 + 5) / 3']);
         $result = $tool->handle($request);
         $this->assertEquals('5', $result);
+
+        // Test with many brackets and operators to ensure no hang
+        $longExpr = str_repeat('(', 10) . '2+2' . str_repeat(')', 10);
+        $request = new Request(['expression' => $longExpr]);
+        $result = $tool->handle($request);
+        $this->assertEquals('4', $result);
+
+        $manyOps = '1' . str_repeat('+1', 50);
+        $request = new Request(['expression' => $manyOps]);
+        $result = $tool->handle($request);
+        $this->assertEquals('51', $result);
+
+        // Test division by zero
+        $request = new Request(['expression' => '1 / 0']);
+        $result = $tool->handle($request);
+        $this->assertStringContainsString('Division by zero', $result);
     }
 }

@@ -2,13 +2,12 @@
 
 namespace Tests\Unit;
 
-use App\Ai\Agents\CheapAnonymousAgent;
-use App\Ai\Agents\SmartAnonymousAgent;
-use App\Ai\Core\Interfaces\DynamicPlannerInterface;
-use App\Ai\Core\Plans\OrchestrationStep;
+use App\Ai\Core\Plans\Step;
+use App\Ai\Core\State\AgentState;
+use App\Ai\Events\Workflow\StepRequested;
+use App\Ai\Events\Workflow\WorkflowStarted;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
-use App\Ai\Agents\ResearchAgent;
-use App\Ai\Agents\SummaryAgent;
 use App\Ai\Core\Supervisor;
 use Mockery;
 
@@ -20,33 +19,22 @@ class MultiAgentTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_supervisor_runs_dynamic_plan()
+    public function test_supervisor_dispatches_initial_events()
     {
-        // 1. Mock Dynamic ToolsPlanner
-        $planner = Mockery::mock(DynamicPlannerInterface::class);
-        $planner->shouldReceive('initialStep')
-            ->once()
-            ->andReturn(new OrchestrationStep('research', 'Simple task'));
+        Event::fake();
 
-        $planner->shouldReceive('nextStep')
-            ->once()
-            ->andReturn(null); // Finish immediately after first step
-
-        // 2. Mock Agents logic (Cheap/Smart agents inside ResearchAgent's LoopController)
-        CheapAnonymousAgent::fake([
-            ['steps' => []]
-        ]);
-        SmartAnonymousAgent::fake([
-            'Final response'
-        ]);
-
-        $researchAgent = app(ResearchAgent::class);
-        $summaryAgent = app(SummaryAgent::class);
-        $supervisor = new Supervisor($researchAgent, $summaryAgent, $planner);
-
+        $supervisor = new Supervisor();
         $state = $supervisor->handle("Simple task");
 
-        $this->assertEquals('Final response', $state->context);
-        $this->assertCount(1, $state->history);
+        $this->assertInstanceOf(AgentState::class, $state);
+        $this->assertEquals("Simple task", $state->input);
+
+        Event::assertDispatched(WorkflowStarted::class, function ($event) use ($state) {
+            return $event->state->input === $state->input;
+        });
+
+        Event::assertDispatched(StepRequested::class, function ($event) use ($state) {
+            return $event->state->input === $state->input;
+        });
     }
 }

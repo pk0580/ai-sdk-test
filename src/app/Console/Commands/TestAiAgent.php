@@ -3,20 +3,21 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Ai\Events\UserMessageReceived;
+use App\Ai\Core\Supervisor;
 
 class TestAiAgent extends Command
 {
     protected $signature = 'ai:test {message=Hello}';
-    protected $description = 'Test AI Agent Event Chain';
+    protected $description = 'Test AI Agent Reactive Chain';
 
-    public function handle()
+    public function handle(Supervisor $supervisor)
     {
         $message = $this->argument('message');
-        $this->info("Dispatching UserMessageReceived: $message");
+        $this->info("Starting Workflow via Supervisor for: $message");
 
-        UserMessageReceived::dispatch($message, ['session_id' => uniqid()]);
+        $state = $supervisor->handle($message);
 
-        $this->info("Done. Check logs for results.");
+        $this->info("Workflow initiated. Current history count: " . count($state->history));
+        $this->info("Check logs for the reactive execution progress.");
     }
 }

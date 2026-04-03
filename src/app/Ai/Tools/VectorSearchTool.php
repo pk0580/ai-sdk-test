@@ -30,6 +30,7 @@ class VectorSearchTool implements Tool
     public function handle(Request $request): Stringable|string
     {
         $query = $request->string('query');
+        \Illuminate\Support\Facades\Log::info("Tool [VectorSearchTool]: Вызов с параметром query='{$query}'");
         $limit = $request->integer('limit', 5); // ТЗ предлагает 5 по умолчанию в примере
 
         if (Document::count() === 0) {

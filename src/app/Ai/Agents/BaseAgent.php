@@ -54,6 +54,18 @@ abstract class BaseAgent implements Agent, Conversational, HasTools
         Log::info("Agent [{$this->name}]: Обработка сообщения", ['message' => $message]);
 
         try {
+            // Если агент имеет инструменты, залогируем их
+            if ($this instanceof HasTools) {
+                $tools = $this->tools();
+                if (!empty($tools)) {
+                    $toolNames = [];
+                    foreach ($tools as $name => $tool) {
+                        $toolNames[] = is_string($name) ? $name : get_class($tool);
+                    }
+                    Log::info("Agent [{$this->name}]: Доступные инструменты: " . implode(', ', $toolNames));
+                }
+            }
+
             $response = $this->prompt($message);
 
             return (string) $response;
@@ -67,5 +79,5 @@ abstract class BaseAgent implements Agent, Conversational, HasTools
      * Позволяет агенту выполнять задачи с использованием LoopController.
      * По умолчанию, агенты могут иметь разный набор инструментов или промптов.
      */
-    abstract public function execute(string|AgentState $task): string;
+    abstract public function execute(string $task, AgentState $state): string;
 }
