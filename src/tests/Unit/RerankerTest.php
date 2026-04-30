@@ -2,26 +2,27 @@
 
 namespace Tests\Unit;
 
-use App\Ai\Core\Reranker;
-use App\Models\Document;
-use Illuminate\Support\Collection;
+use App\Domain\Ai\Knowledge\DocumentChunk;
+use App\Infrastructure\Ai\Agent\SmartAnonymousAgent;
+use App\Infrastructure\Ai\Reranker\LlmReranker;
 use Tests\TestCase;
 use Mockery;
-use App\Ai\Agents\SmartAnonymousAgent;
 
 class RerankerTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
+    }
+
     public function test_rerank_parses_ids_correctly()
     {
-        $chunks = collect([
-            new Document(['content' => 'Content 1']),
-            new Document(['content' => 'Content 2']),
-            new Document(['content' => 'Content 3']),
-        ]);
-        // Manually set IDs because we don't want to hit DB
-        $chunks[0]->id = 10;
-        $chunks[1]->id = 20;
-        $chunks[2]->id = 30;
+        $chunks = [
+            new DocumentChunk(10, 'Content 1'),
+            new DocumentChunk(20, 'Content 2'),
+            new DocumentChunk(30, 'Content 3'),
+        ];
 
         // Mock SmartAnonymousAgent
         $mockAgent = Mockery::mock('overload:' . SmartAnonymousAgent::class);
@@ -29,33 +30,35 @@ class RerankerTest extends TestCase
             ->once()
             ->andReturn('Selected IDs: 30, 10');
 
-        $reranker = new Reranker();
+        $reranker = new LlmReranker();
         $result = $reranker->rerank('some query', $chunks);
 
         $this->assertCount(2, $result);
-        $this->assertEquals(30, $result->first()->id);
-        $this->assertEquals(10, $result->last()->id);
+        $this->assertEquals(30, $result[0]->id);
+        $this->assertEquals(10, $result[1]->id);
     }
 
     public function test_rerank_returns_top_3_on_parse_failure()
     {
-        $chunks = collect([
-            new Document(['content' => 'C1']),
-            new Document(['content' => 'C2']),
-            new Document(['content' => 'C3']),
-            new Document(['content' => 'C4']),
-        ]);
-        foreach ($chunks as $i => $c) $c->id = $i + 1;
+        $chunks = [
+            new DocumentChunk(1, 'C1'),
+            new DocumentChunk(2, 'C2'),
+            new DocumentChunk(3, 'C3'),
+            new DocumentChunk(4, 'C4'),
+            new DocumentChunk(5, 'C5'),
+            new DocumentChunk(6, 'C6'),
+        ];
 
         $mockAgent = Mockery::mock('overload:' . SmartAnonymousAgent::class);
         $mockAgent->shouldReceive('prompt')
             ->once()
             ->andReturn('No IDs here');
 
-        $reranker = new Reranker();
+        $reranker = new LlmReranker();
         $result = $reranker->rerank('query', $chunks);
 
-        $this->assertCount(3, $result);
-        $this->assertEquals(1, $result->first()->id);
+        // LlmReranker::MAX_RESULTS is 5
+        $this->assertCount(5, $result);
+        $this->assertEquals(1, $result[0]->id);
     }
 }

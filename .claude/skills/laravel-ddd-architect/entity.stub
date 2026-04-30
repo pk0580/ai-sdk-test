@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Entity;
+
+final class {{EntityName}}
+{
+    private function __construct(
+        private {{Id}} $id
+    ) {}
+
+    public static function create({{Id}} $id): self
+    {
+        return new self($id);
+    }
+}

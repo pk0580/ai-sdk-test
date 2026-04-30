@@ -1,0 +1,4 @@
+name: laravel-ddd-architect
+description: Staff-level Laravel DDD + Clean Architecture + CQRS + Highload patterns with DSL, code generation and real Laravel structure generator
+version: 2.1.0
+author: pavel

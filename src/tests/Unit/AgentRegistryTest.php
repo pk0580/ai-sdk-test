@@ -2,9 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Ai\Agents\ResearchAgent;
-use App\Ai\Agents\SummaryAgent;
-use App\Ai\Core\AgentRegistry;
+use App\Domain\Ai\Conversation\AgentName;
+use App\Infrastructure\Ai\Agent\ResearchAgent;
+use App\Infrastructure\Ai\Agent\SummaryAgent;
+use App\Infrastructure\Ai\Executor\AgentRegistryExecutor;
 use Tests\TestCase;
 use InvalidArgumentException;
 
@@ -15,10 +16,10 @@ class AgentRegistryTest extends TestCase
         $research = $this->createMock(ResearchAgent::class);
         $summary = $this->createMock(SummaryAgent::class);
 
-        $registry = new AgentRegistry($research, $summary);
+        $registry = new AgentRegistryExecutor($research, $summary);
 
-        $this->assertSame($research, $registry->get('research'));
-        $this->assertSame($summary, $registry->get('summary'));
+        $this->assertSame($research, $registry->get(AgentName::RESEARCH));
+        $this->assertSame($summary, $registry->get(AgentName::SUMMARY));
     }
 
     public function test_throws_exception_for_unknown_agent()
@@ -26,7 +27,7 @@ class AgentRegistryTest extends TestCase
         $research = $this->createMock(ResearchAgent::class);
         $summary = $this->createMock(SummaryAgent::class);
 
-        $registry = new AgentRegistry($research, $summary);
+        $registry = new AgentRegistryExecutor($research, $summary);
 
         $this->expectException(InvalidArgumentException::class);
         $registry->get('unknown');

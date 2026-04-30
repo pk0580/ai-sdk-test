@@ -2,20 +2,20 @@
 
 namespace Tests\Unit;
 
-use App\Ai\Core\QueryRewriter;
-use App\Ai\Core\Reranker;
-use App\Ai\Memory\VectorStore;
-use App\Ai\Tools\VectorSearchTool;
-use PHPUnit\Framework\TestCase;
-use App\Ai\Tools\ToolRegistry;
-use App\Ai\Tools\CalculatorTool;
+use App\Domain\Ai\Knowledge\DocumentRepositoryInterface;
+use App\Domain\Ai\Knowledge\QueryRewriterInterface;
+use App\Domain\Ai\Knowledge\RerankerInterface;
+use App\Infrastructure\Ai\Tool\VectorSearchTool;
+use Tests\TestCase;
+use App\Infrastructure\Ai\Tool\InMemoryToolRegistry;
+use App\Infrastructure\Ai\Tool\CalculatorTool;
 use Laravel\Ai\Tools\Request;
 
 class ToolRegistryTest extends TestCase
 {
     public function test_can_register_and_get_tool()
     {
-        $registry = new ToolRegistry();
+        $registry = new InMemoryToolRegistry();
         $tool = new CalculatorTool();
 
         $registry->register('calculator', $tool);
@@ -27,14 +27,14 @@ class ToolRegistryTest extends TestCase
 
     public function test_returns_null_for_unknown_tool()
     {
-        $registry = new ToolRegistry();
+        $registry = new InMemoryToolRegistry();
         $this->assertNull($registry->get('non_existent'));
         $this->assertFalse($registry->has('non_existent'));
     }
 
     public function test_can_get_tools_definitions()
     {
-        $registry = new ToolRegistry();
+        $registry = new InMemoryToolRegistry();
         $registry->register('calculator', new CalculatorTool());
 
         $definitions = $registry->getToolsDefinitions();
@@ -50,10 +50,10 @@ class ToolRegistryTest extends TestCase
 
     public function test_can_get_vector_search_tool_definition()
     {
-        $registry = new ToolRegistry();
-        $mockStore = $this->createMock(VectorStore::class);
-        $mockRewriter = $this->createMock(QueryRewriter::class);
-        $mockReranker = $this->createMock(Reranker::class);
+        $registry = new InMemoryToolRegistry();
+        $mockStore = $this->createMock(DocumentRepositoryInterface::class);
+        $mockRewriter = $this->createMock(QueryRewriterInterface::class);
+        $mockReranker = $this->createMock(RerankerInterface::class);
 
         $registry->register('vector_search', new VectorSearchTool($mockStore, $mockRewriter, $mockReranker));
 

@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Interface\Http\{{BoundedContext}}\Controller;
+
+use App\Application\{{BoundedContext}}\DTO\{{DTO}};
+use App\Application\{{BoundedContext}}\UseCase\{{UseCaseName}};
+use App\Interface\Http\{{BoundedContext}}\Request\{{RequestName}};
+use Illuminate\Http\JsonResponse;
+
+final class {{ControllerName}}
+{
+    public function __construct(
+        private readonly {{UseCaseName}} $useCase
+    ) {}
+
+    public function __invoke({{RequestName}} $request): JsonResponse
+    {
+        $dto = new {{DTO}}(
+            ...$request->validated()
+        );
+
+        $this->useCase->execute($dto);
+
+        return response()->json(['status' => 'ok']);
+    }
+}

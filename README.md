@@ -13,18 +13,16 @@
 
 ## 🧠 Архитектура системы
 
-Система построена на событийно-ориентированной архитектуре (Event-Driven):
+Проект реализован с использованием принципов **Domain-Driven Design (DDD)** и событийно-ориентированной архитектуры (Event-Driven):
 
-1.  **Supervisor**: Точка входа, координирует работу всей системы.
-2.  **Hybrid Planner**: Формирует план выполнения задачи (статический или на базе LLM).
-3.  **Orchestration Executor**: Пошагово выполняет план, передавая контекст (`AgentState`) между агентами.
-4.  **Агенты**:
-    - **ResearchAgent**: Исследователь, ищет информацию и выполняет расчеты.
-    - **SummaryAgent**: Саммаризатор, структурирует данные и готовит итоговый ответ.
+1.  **Domain Layer**: Содержит бизнес-логику и агрегаты (`Conversation`). Все состояния иммутабельны.
+2.  **Application Layer**: Оркестрация через Use Cases (`StartConversationUseCase`) и реактивные слушатели (Listeners).
+3.  **Infrastructure Layer**: Технические реализации (LLM-планировщик, агенты, хранилища).
+4.  **Interface Layer**: HTTP контроллеры и консольные команды.
 
 ## 🛠 Технологический стек
 
-- **Backend**: Laravel 11, PHP 8.4
+- **Backend**: Laravel 12, PHP 8.4
 - **Database**: PostgreSQL + `pgvector`
 - **AI Infrastructure**: Ollama (модели `llama3.1`, `nomic-embed-text`)
 - **Queue & Events**: Redis, Laravel Horizon

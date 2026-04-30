@@ -2,16 +2,15 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: ./src
-      dockerfile: Dockerfile
+    build: .
     ports:
       - "8000:8000"
     depends_on:
       - db
       - redis
+    user: "1000:1000"
     volumes:
-      - ./src:/var/www/html
+      - ./src:/var/www/html:delegated
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis
@@ -23,14 +22,15 @@ services:
     command: php artisan serve --host=0.0.0.0 --port=8000
 
   worker:
-    build: ./src
+    build: .
     command: php artisan queue:work --sleep=3 --tries=3 --timeout=1200
     depends_on:
       - app
       - redis
       - db
+    user: "1000:1000"
     volumes:
-      - ./src:/var/www/html
+      - ./src:/var/www/html:delegated
     restart: always
     environment:
       - DB_HOST=db
@@ -42,14 +42,15 @@ services:
       - DB_PASSWORD=password
 
   horizon:
-    build: ./src
+    build: .
     command: php artisan horizon
     depends_on:
       - app
       - redis
       - db
+    user: "1000:1000"
     volumes:
-      - ./src:/var/www/html
+      - ./src:/var/www/html:delegated
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis
@@ -60,14 +61,15 @@ services:
       - DB_PASSWORD=password
 
   scheduler:
-    build: ./src
+    build: .
     command: php artisan schedule:work
     depends_on:
       - app
       - redis
       - db
+    user: "1000:1000"
     volumes:
-      - ./src:/var/www/html
+      - ./src:/var/www/html:delegated
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis

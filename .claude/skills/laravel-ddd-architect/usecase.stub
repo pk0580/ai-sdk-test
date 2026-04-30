@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\UseCase;
+
+final class {{UseCaseName}}
+{
+    public function __construct(
+        private readonly {{RepositoryInterface}} $repository
+    ) {}
+
+    public function execute({{DTO}} $dto): void
+    {
+        // implementation
+    }
+}

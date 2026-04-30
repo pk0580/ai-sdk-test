@@ -2,13 +2,13 @@
 
 namespace Tests\Unit;
 
-use App\Ai\Core\Plans\Step;
-use App\Ai\Core\State\AgentState;
-use App\Ai\Events\Workflow\StepRequested;
-use App\Ai\Events\Workflow\WorkflowStarted;
+use App\Application\Ai\Conversation\DTO\StartConversationInput;
+use App\Application\Ai\Conversation\Event\StepRequested;
+use App\Application\Ai\Conversation\Event\WorkflowStarted;
+use App\Application\Ai\Conversation\UseCase\StartConversationUseCase;
+use App\Domain\Ai\Conversation\Conversation;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
-use App\Ai\Core\Supervisor;
 use Mockery;
 
 class MultiAgentTest extends TestCase
@@ -23,18 +23,20 @@ class MultiAgentTest extends TestCase
     {
         Event::fake();
 
-        $supervisor = new Supervisor();
-        $state = $supervisor->handle("Simple task");
+        /** @var StartConversationUseCase $useCase */
+        $useCase = app(StartConversationUseCase::class);
+        $output = $useCase->execute(new StartConversationInput("Simple task"));
 
-        $this->assertInstanceOf(AgentState::class, $state);
-        $this->assertEquals("Simple task", $state->input);
+        $conversation = $output->conversation;
+        $this->assertInstanceOf(Conversation::class, $conversation);
+        $this->assertEquals("Simple task", $conversation->input);
 
-        Event::assertDispatched(WorkflowStarted::class, function ($event) use ($state) {
-            return $event->state->input === $state->input;
+        Event::assertDispatched(WorkflowStarted::class, function ($event) use ($conversation) {
+            return $event->conversation->input === $conversation->input;
         });
 
-        Event::assertDispatched(StepRequested::class, function ($event) use ($state) {
-            return $event->state->input === $state->input;
+        Event::assertDispatched(StepRequested::class, function ($event) use ($conversation) {
+            return $event->conversation->input === $conversation->input;
         });
     }
 }

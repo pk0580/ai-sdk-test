@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "mode": "bypassPermissions"
+  },
+  "model": "claude-opus-4-7",
+  "effortLevel": "xhigh",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/pavel/projects/tests/ai-sdk-test/.claude/hooks/php-postwrite.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
