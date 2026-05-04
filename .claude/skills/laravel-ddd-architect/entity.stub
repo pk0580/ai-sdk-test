@@ -2,15 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Entity;
+namespace App\Domain\{{BoundedContext}}\Entity;
+
+use App\Domain\{{BoundedContext}}\ValueObject\{{Id}};
 
 final class {{EntityName}}
 {
     private function __construct(
-        private {{Id}} $id
+        public readonly {{Id}} $id,
+        // promote other invariant-protected properties here
     ) {}
 
     public static function create({{Id}} $id): self
+    {
+        return new self($id);
+    }
+
+    public static function reconstitute({{Id}} $id): self
     {
         return new self($id);
     }

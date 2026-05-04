@@ -2,16 +2,28 @@
 
 declare(strict_types=1);
 
-namespace App\Application\UseCase;
+namespace App\Application\{{BoundedContext}}\UseCase\{{UseCaseName}};
 
-final class {{UseCaseName}}
+use App\Application\{{BoundedContext}}\DTO\{{DTO}};
+use App\Domain\{{BoundedContext}}\Repository\{{RepositoryName}};
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\DatabaseManager;
+
+final readonly class {{UseCaseName}}
 {
     public function __construct(
-        private readonly {{RepositoryInterface}} $repository
+        private {{RepositoryName}} $repository,
+        private DatabaseManager $db,
+        private Dispatcher $events,
     ) {}
 
-    public function execute({{DTO}} $dto): void
+    public function handle({{DTO}} $data): void
     {
-        // implementation
+        $this->db->transaction(function () use ($data) {
+            // 1. Load or create the aggregate.
+            // 2. Invoke business intent methods.
+            // 3. Persist via repository.
+            // 4. Dispatch domain events with $this->db->afterCommit(...).
+        });
     }
 }

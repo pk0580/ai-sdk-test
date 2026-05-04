@@ -1,19 +1,74 @@
 {
   "permissions": {
     "defaultMode": "bypassPermissions",
-    "mode": "bypassPermissions"
+    "mode": "bypassPermissions",
+    "allow": [
+      "Bash(php artisan test:*)",
+      "Bash(php artisan migrate:*)",
+      "Bash(php -l:*)",
+      "Bash(./vendor/bin/pint:*)",
+      "Bash(./vendor/bin/pest:*)",
+      "Bash(./vendor/bin/phpunit:*)",
+      "Bash(./vendor/bin/phpstan:*)",
+      "Bash(composer install:*)",
+      "Bash(composer update:*)",
+      "Bash(composer require:*)",
+      "Bash(composer dump-autoload:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker ps:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)"
+    ]
   },
   "model": "claude-opus-4-7",
   "effortLevel": "xhigh",
+  "env": {
+    "CLAUDE_PHP_CONTAINER": "shop_php",
+    "CLAUDE_SRC_PREFIX": "/home/pavel/projects/tests/shop-test/src/",
+    "CLAUDE_CONTAINER_ROOT": "/var/www/html/",
+    "CLAUDE_PHPSTAN_LEVEL": "8",
+    "CLAUDE_PHPSTAN_MEMORY": "512M"
+  },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/claude/hooks/secret-guard.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "/home/pavel/projects/tests/ai-sdk-test/.claude/hooks/php-postwrite.sh",
+            "command": "${CLAUDE_PROJECT_DIR}/claude/hooks/php-postwrite.sh",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/claude/hooks/phpstan-stop.sh",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/claude/hooks/test-stop.sh",
+            "timeout": 300
           }
         ]
       }

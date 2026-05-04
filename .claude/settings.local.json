@@ -3,5 +3,8 @@
     "allow": [
       "Bash(env)"
     ]
+  },
+  "env": {
+    "CLAUDE_SKIP_TESTS": "0"
   }
 }

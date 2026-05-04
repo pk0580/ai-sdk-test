@@ -4,9 +4,20 @@ declare(strict_types=1);
 
 namespace App\Application\{{BoundedContext}}\DTO;
 
-final class {{DTO}}
+use App\Interface\Http\{{BoundedContext}}\Request\{{RequestName}};
+
+final readonly class {{DTO}}
 {
     public function __construct(
-        // properties
+        // public string $foo,
+        // public int $bar,
     ) {}
+
+    public static function fromRequest({{RequestName}} $request): self
+    {
+        return new self(
+            // foo: $request->validated('foo'),
+            // bar: (int) $request->validated('bar'),
+        );
+    }
 }
