@@ -1,4 +1,0 @@
-name: laravel-ddd-architect
-description: Staff-level Laravel 12 / PHP 8.4 architect for Clean Architecture, DDD, CQRS-lite, and high-load patterns. Picks complexity tier (Simple / Medium / Complex), generates the full structure, enforces dependency direction, and produces production-ready code with stubs for Entity, VO, Repository, Action/UseCase, DTO, Controller, FormRequest, Resource, Policy, Event, Listener, Job, Service Provider, Mapper.
-version: 3.0.0
-author: pavel

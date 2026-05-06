@@ -2,7 +2,7 @@
 
 You are a Staff-level Laravel engineer. Write code that a senior reviewer would merge without rework.
 
-All generated code must follow the rules in this file and the topic files linked from `.junie/index.md`.
+All generated code must follow the rules in this file and the consolidated rules in `.junie/rules/`.
 When guidance here conflicts with a user request, surface the conflict rather than silently violating these rules.
 
 ---
@@ -10,8 +10,8 @@ When guidance here conflicts with a user request, surface the conflict rather th
 ## Target Stack
 
 - PHP 8.4 (use readonly classes, property hooks, asymmetric visibility where they clarify intent)
-- Laravel 12 (Laravel 11+ skeleton, Artisan-first, container-driven DI)
-- Testing: Pest 4 (default), PHPUnit compatible
+- Laravel 13 (Laravel 11+ skeleton, Artisan-first, container-driven DI)
+- Testing: Pest 4 / PHPUnit 12 (auto-detect: check `src/composer.json` for `pestphp/pest`, else PHPUnit)
 - Formatting: Laravel Pint (PSR-12 + Laravel preset)
 - Static analysis: PHPStan level 8 or Larastan
 - DTOs: `readonly` classes or `spatie/laravel-data` when JSON/form mapping is needed
@@ -21,22 +21,17 @@ When guidance here conflicts with a user request, surface the conflict rather th
 
 Do not introduce new packages without a clear benefit. Prefer first-party Laravel features.
 
-See `rules/stack.md` for full version and package policy.
+(См. `.junie/rules/technical_stack.md`)
 
 ---
 
 ## Architecture
 
-Dependency direction is strictly: **UI → Application → Domain**. Infrastructure implements interfaces defined by Domain or Application.
-
-- **Domain** — pure PHP, framework-independent, entities and value objects, invariants enforced in constructors and methods.
-- **Application** — use cases (Actions), commands, queries, DTOs, orchestration, transactions.
-- **Infrastructure** — Eloquent models and repositories, HTTP clients, queues, cache, filesystem, third-party SDKs.
-- **UI** — controllers, console commands, Form Requests, API Resources, Blade, Livewire.
-
-Organize code **domain-first** (`app/Modules/Order/{Domain,Application,Infrastructure,UI}`) for non-trivial features, not by technical layer across the whole app.
-
-See `rules/architecture.md`, `rules/project-structure.md`, `rules/module-generation.md`.
+- **Architecture & Workflow:** `.junie/rules/architecture.md`
+- **Technical Stack:** `.junie/rules/technical_stack.md`
+- **Quality & Security:** `.junie/rules/quality_gate.md`
+- **Layer Context:** `.junie/rules/layers_context.md`
+- **Advanced Patterns:** `.junie/rules/advanced_patterns.md`
 
 ---
 
@@ -52,7 +47,7 @@ Do not apply DDD to everything. Match the approach to the problem.
 
 When unclear, pick the simpler approach and document *why* you stopped short of DDD.
 
-See `rules/decision.md` and `rules/templates.md`.
+(См. `.junie/rules/architecture.md`)
 
 ---
 
@@ -67,7 +62,7 @@ Every task runs in one of four modes. Detect the mode from the user's intent, th
 
 Self-review loops at most 3 times; stop on `OK`.
 
-See `rules/workflow.md`.
+(См. `.junie/rules/architecture.md`)
 
 ---
 
@@ -91,7 +86,7 @@ Avoid:
 - Hidden side effects (mutation during read, emitted events from getters)
 - Returning Eloquent models from Application or Domain layer
 
-See `rules/anti-patterns.md`, `rules/naming.md`, `rules/services.md`.
+(См. `.junie/rules/quality_gate.md`)
 
 ---
 
@@ -105,7 +100,7 @@ Assume the system may serve high traffic and tables may hold millions of rows.
 - Push heavy work to queues (email, reports, integrations, large imports).
 - External calls must set timeouts, retries, and circuit-breaker-style guards.
 
-See `rules/performance.md`, `rules/performance-critical.md`.
+(См. `.junie/rules/technical_stack.md`)
 
 ---
 
@@ -117,7 +112,7 @@ See `rules/performance.md`, `rules/performance-critical.md`.
 - Use Policies or Gates for authorization; check in Form Request `authorize()` or at Action entry.
 - Mass-assignment: explicit `$fillable` or `$guarded = []` plus DTO boundary.
 
-See `rules/security.md`, `rules/authorization.md`, `rules/validation.md`.
+(См. `.junie/rules/quality_gate.md`)
 
 ---
 
@@ -128,7 +123,7 @@ See `rules/security.md`, `rules/authorization.md`, `rules/validation.md`.
 - Use factories, not fixtures. Keep tests deterministic (freeze time, fake queues/events/storage).
 - Architecture tests (Pest `arch()`) enforce layer boundaries in CI.
 
-See `rules/testing.md`.
+(См. `.junie/rules/quality_gate.md`)
 
 ---
 
@@ -154,7 +149,7 @@ When producing code in a response, structure it as:
 
 Keep code blocks focused. Do not repeat unchanged code.
 
-See `rules/output.md`.
+(См. `.junie/rules/architecture.md`)
 
 ---
 

@@ -16,9 +16,9 @@
 Проект реализован с использованием принципов **Domain-Driven Design (DDD)** и событийно-ориентированной архитектуры (Event-Driven):
 
 1.  **Domain Layer**: Содержит бизнес-логику и агрегаты (`Conversation`). Все состояния иммутабельны.
-2.  **Application Layer**: Оркестрация через Use Cases (`StartConversationUseCase`) и реактивные слушатели (Listeners).
+2.  **Application Layer**: Оркестрация через Actions (`StartConversationAction`) и реактивные слушатели (Listeners).
 3.  **Infrastructure Layer**: Технические реализации (LLM-планировщик, агенты, хранилища).
-4.  **Interface Layer**: HTTP контроллеры и консольные команды.
+4.  **Interface Layer**: HTTP контроллеры (инвокабельные) и консольные команды.
 
 ## 🛠 Технологический стек
 

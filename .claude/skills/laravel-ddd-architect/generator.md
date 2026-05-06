@@ -10,7 +10,7 @@ and DDD, scaled to the chosen complexity tier.
 ### Layer-First (Small / Medium projects)
 
 ```
-app/
+src/app/
 ├── Domain/
 │   └── {BoundedContext}/
 │       ├── Entity/
@@ -22,7 +22,7 @@ app/
 ├── Application/
 │   └── {BoundedContext}/
 │       ├── UseCase/{Verb}{Noun}/
-│       │   ├── {Verb}{Noun}.php
+│       │   ├── {Verb}{Noun}Action.php
 │       │   └── {Verb}{Noun}Data.php
 │       ├── DTO/
 │       ├── Command/
@@ -50,7 +50,7 @@ app/
 ### Domain-First Modules (Large projects)
 
 ```
-app/
+src/app/
 └── Modules/
     └── {BoundedContext}/
         ├── Domain/
@@ -64,7 +64,7 @@ app/
 ## Complete Example: `Order` Module (Complex tier)
 
 ```
-app/
+src/app/
 ├── Domain/Order/
 │   ├── Entity/Order.php
 │   ├── ValueObject/OrderId.php
@@ -77,10 +77,10 @@ app/
 │
 ├── Application/Order/
 │   ├── UseCase/CreateOrder/
-│   │   ├── CreateOrder.php
+│   │   ├── CreateOrderAction.php
 │   │   └── CreateOrderData.php
 │   ├── UseCase/PayOrder/
-│   │   ├── PayOrder.php
+│   │   ├── PayOrderAction.php
 │   │   └── PayOrderData.php
 │   └── Query/GetOrderDashboard/
 │       ├── GetOrderDashboardQuery.php
@@ -103,7 +103,7 @@ app/
     ├── Resource/OrderResource.php
     └── Policy/OrderPolicy.php
 
-tests/
+src/tests/
 ├── Unit/Domain/Order/OrderTest.php
 ├── Unit/Domain/Order/MoneyTest.php
 ├── Feature/Order/CreateOrderTest.php
@@ -129,40 +129,40 @@ PSR-4 autoload path matches namespace exactly.
 
 ## File Mapping
 
-| Concept | Location |
+| Artifact | Path |
 |---|---|
-| Entity / Aggregate | `Domain/{Ctx}/Entity/` |
-| Value Object | `Domain/{Ctx}/ValueObject/` |
-| Repository interface | `Domain/{Ctx}/Repository/` |
-| Domain Event | `Domain/{Ctx}/Event/` |
-| Domain Exception | `Domain/{Ctx}/Exception/` |
-| UseCase / Action | `Application/{Ctx}/UseCase/{Verb}{Noun}/` |
-| DTO | `Application/{Ctx}/DTO/` (or co-located with use case) |
-| Command / Query | `Application/{Ctx}/Command|Query/` |
-| Eloquent Model | `Infrastructure/{Ctx}/Persistence/Eloquent/Models/` |
-| Eloquent Repository | `Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/` |
-| Mapper | `Infrastructure/{Ctx}/Persistence/Eloquent/Mappers/` |
-| Listener | `Infrastructure/{Ctx}/Event/Listener/` |
-| Job | `Infrastructure/{Ctx}/Job/` |
-| Service Provider | `Infrastructure/{Ctx}/Provider/` |
-| Controller | `Interface/Http/{Ctx}/Controller/` |
-| Form Request | `Interface/Http/{Ctx}/Request/` |
-| API Resource | `Interface/Http/{Ctx}/Resource/` |
-| Policy | `Interface/Http/{Ctx}/Policy/` |
+| Entity / Aggregate | `src/app/Domain/{Ctx}/Entity/` |
+| Value Object | `src/app/Domain/{Ctx}/ValueObject/` |
+| Repository interface | `src/app/Domain/{Ctx}/Repository/` |
+| Domain Event | `src/app/Domain/{Ctx}/Event/` |
+| Domain Exception | `src/app/Domain/{Ctx}/Exception/` |
+| UseCase / Action | `src/app/Application/{Ctx}/UseCase/{Verb}{Noun}/` |
+| DTO | `src/app/Application/{Ctx}/UseCase/{Verb}{Noun}/` (co-located with use case) |
+| Command / Query | `src/app/Application/{Ctx}/Command|Query/` |
+| Eloquent Model | `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Models/` |
+| Eloquent Repository | `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/` |
+| Mapper | `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Mappers/` |
+| Listener | `src/app/Infrastructure/{Ctx}/Event/Listener/` |
+| Job | `src/app/Infrastructure/{Ctx}/Job/` |
+| Service Provider | `src/app/Infrastructure/{Ctx}/Provider/` |
+| Controller | `src/app/Interface/Http/{Ctx}/Controller/` |
+| Form Request | `src/app/Interface/Http/{Ctx}/Request/` |
+| API Resource | `src/app/Interface/Http/{Ctx}/Resource/` |
+| Policy | `src/app/Interface/Http/{Ctx}/Policy/` |
 
 ---
 
 ## CQRS-Lite Add-Ons
 
 ```
-Application/{Ctx}/
+src/app/Application/{Ctx}/
 ├── Query/{Noun}/
 │   ├── Get{Noun}Query.php
 │   ├── Get{Noun}Handler.php
 │   └── {Noun}View.php
 └── ReadModel/   (optional, if read-side needs separate models)
 
-Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/
+src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/
 └── Eloquent{Noun}ReadRepository.php
 ```
 
@@ -171,7 +171,7 @@ Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/
 ## High-Load Add-Ons
 
 ```
-Infrastructure/{Ctx}/
+src/app/Infrastructure/{Ctx}/
 ├── Cache/
 ├── Queue/
 ├── Outbox/

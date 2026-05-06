@@ -3,81 +3,34 @@
 Entry point: `.junie/guidelines.md`.
 
 Load the files below when relevant to the task at hand.
-Minimum set for any task: `workflow`, `decision`, `architecture`, `naming`, `anti-patterns`, plus the layer you are touching.
+Minimum set for any task: `architecture`, `layers_context`, plus the layer you are touching.
 
 ---
 
-## Workflow
+## Workflow, Architecture, Output Format, Templates
 
-- `rules/workflow.md` — modes (FEATURE / FIX / REFACTOR / TEST) and pipelines
-- `rules/decision.md` — CRUD vs Actions vs DDD heuristic
-- `rules/output.md` — how to structure the response
-- `rules/stack.md` — target versions, preferred packages, execution commands
+- `rules/architecture.md` — modes (FEATURE / FIX / REFACTOR / TEST), pipelines, output format, project structure, module generation, code templates, complexity decision heuristic
 
-## Architecture
+## Technical Stack
 
-- `rules/architecture.md` — layers, dependency direction
-- `rules/project-structure.md` — directory layout, domain-first modules
-- `rules/module-generation.md` — full module scaffold
-- `rules/naming.md` — naming conventions
-- `rules/anti-patterns.md` — what to avoid
-- `rules/templates.md` — code templates per complexity
+- `rules/technical_stack.md` — API design, database, migrations, Eloquent, performance, caching, queues, jobs, events, repositories, authorization, validation, naming conventions, anti-patterns, Laravel conventions, stack versions
 
-## Domain
+## Domain Layer
 
-- `rules/domain.md` — entities, value objects, invariants
+- `rules/domain.md` — entities, value objects, aggregate roots, domain events, repository interfaces, invariants
 
-## Application
+## Application Layer
 
-- `rules/application.md` — use cases, commands, queries, DTOs
-- `rules/services.md` — Actions over generic services
-- `rules/repositories.md` — read vs write repositories
+- `rules/application.md` — actions, commands/queries, DTOs, transaction rules, return types
 
-## Framework
+## Quality & Security
 
-- `rules/laravel.md` — Laravel conventions, container, providers
-- `rules/eloquent.md` — ORM usage, relations, scopes
-- `rules/validation.md` — Form Requests, rules, DTO validation
-- `rules/authorization.md` — Policies, Gates, Form Request auth
-- `rules/jobs.md` — queues, async handlers, idempotency
-- `rules/events.md` — events, listeners, side effects
+- `rules/quality_gate.md` — testing (Pest / PHPUnit examples, factories, determinism), security (input, auth, secrets, logging), self-review checklist
 
-## API
+## Layer Context (per-layer cheat sheets)
 
-- `rules/api.md` — REST, versioning, errors, pagination
+- `rules/layers_context.md` — Domain, Application, Infrastructure, Interface/UI hard rules and forbidden patterns
 
-## Database
+## Advanced Patterns
 
-- `rules/database.md` — migrations, indexes, data types
-
-## Performance
-
-- `rules/performance.md` — general guidance
-- `rules/performance-critical.md` — high-traffic specifics
-
-## Security
-
-- `rules/security.md` — input, secrets, logging
-
-## Testing
-
-- `rules/testing.md` — Pest, factories, architecture tests
-
-## Review
-
-- `rules/code-review.md` — self-review checklist
-
-## Context (per-layer cheat sheets)
-
-- `context/domain.md`
-- `context/application.md`
-- `context/infrastructure.md`
-- `context/ui.md`
-
-## Advanced
-
-- `advanced/idempotency.md`
-- `advanced/outbox.md`
-- `advanced/concurrency.md`
-- `advanced/cqrs.md`
-- `advanced/resilience.md`
+- `rules/advanced_patterns.md` — concurrency (optimistic/pessimistic locks, advisory locks), idempotency, transactional outbox, CQRS, resilience (timeouts, retries, circuit breaker)

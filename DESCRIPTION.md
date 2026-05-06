@@ -28,18 +28,18 @@
 Этот алгоритм управляет переходами между состояниями системы.
 
 1.  **Запуск**: 
-    - Класс `StartConversationUseCase` (метод `execute`) создает объект `Conversation`.
+    - Класс `StartConversationAction` (метод `handle`) создает объект `Conversation`.
     - Генерирует событие `WorkflowStarted` (логирование) и `StepRequested` (запуск цикла).
 2.  **Планирование**:
-    - `PlanNextStepListener` получает запрос и передает его в `PlanNextStepUseCase`.
+    - `PlanNextStepListener` получает запрос и передает его в `PlanNextStepAction`.
     - Используется **LLM-планировщик** (`LlmDynamicPlanner::decideNextStep`), который на основе истории беседы решает: отправить задачу исследователю (`research`), подвести итог (`summary`) или закончить работу (`null`).
     - Если шаг определен, создается `PlanStep` и генерируется событие `StepPlanned`.
 3.  **Выполнение**:
-    - `ExecuteStepListener` ловит `StepPlanned` и через `ExecuteStepUseCase` вызывает `AgentRegistryExecutor`.
+    - `ExecuteStepListener` ловит `StepPlanned` и через `ExecuteStepAction` вызывает `AgentRegistryExecutor`.
     - Система выбирает нужного агента и запускает его метод `execute`.
     - По завершении генерируется `StepCompleted`.
 4.  **Анализ и Зацикливание**:
-    - `UpdateStateListener` передает результат в `ProcessStepResultUseCase`.
+    - `UpdateStateListener` передает результат в `ProcessStepResultAction`.
     - Здесь создается **новая копия** объекта `Conversation` (так как он иммутабелен) с добавленной записью в историю (`withStepResult`).
     - Если ответ найден (метка `[RESEARCH_FINISHED]`) или достигнут лимит шагов (10), генерируется `WorkflowCompleted`.
     - Иначе генерируется новый `StepRequested`, и мы возвращаемся к пункту 2.
@@ -60,7 +60,7 @@
 Реализован в инструменте `VectorSearchTool` (метод `handle`).
 
 1.  **Перефразирование**: `LlmQueryRewriter::rewrite` преобразует вопрос пользователя в оптимальный поисковый запрос для векторной базы.
-2.  **Поиск**: `EloquentDocumentRepository::search` выполняет поиск похожих фрагментов текста с помощью расширения `pgvector`.
+2.  **Поиск**: `PgVectorDocumentRepository::search` выполняет поиск похожих фрагментов текста с помощью расширения `pgvector`.
 3.  **Переранжирование (Reranking)**: `LlmReranker::rerank` отправляет найденные фрагменты в LLM, чтобы она выбрала 5 самых релевантных. Это отсеивает "шум" и повышает точность.
 
 ---
@@ -72,8 +72,8 @@
 - **`PlanStep`**: Описание шага (какой агент и что делает).
 
 ### Application Layer (Оркестрация)
-- **`StartConversationUseCase`**: Точка входа для новых запросов.
-- **`ProcessStepResultUseCase`**: Логика принятия решения о продолжении цикла или его завершении.
+- **`StartConversationAction`**: Точка входа для новых запросов.
+- **`ProcessStepResultAction`**: Логика принятия решения о продолжении цикла или его завершении.
 - **Слушатели (`Listeners\*`)**: "Клей" системы, передающий управление между этапами через события.
 
 ### Infrastructure Layer (Техника)
@@ -91,12 +91,12 @@ docker-compose exec app php artisan ai:test "Твой запрос"
 ```
 
 ### Веб-интерфейс
-`AiController` предоставляет эндпоинты для работы с фронтендом:
-- `GET /`: Страница чата (`chat.blade.php`).
-- `POST /chat`: Синхронный запуск процесса.
-- `GET /stream`: SSE-стриминг (Server-Sent Events) для отображения "хода мыслей" агентов и прогресса в реальном времени.
-- `POST /queue`: Запуск процесса через фоновую очередь (Laravel Queue).
-- `POST /broadcast`: Демонстрация вещания событий (Laravel Broadcasting).
+`App\Interface\Http\Ai\Controller\*` предоставляют эндпоинты для работы с фронтендом:
+- `GET /` (`IndexController`): Страница чата (`chat.blade.php`).
+- `POST /chat` (`StartChatController`): Синхронный запуск процесса.
+- `GET /stream` (`StreamChatController`): SSE-стриминг (Server-Sent Events) для отображения "хода мыслей" агентов и прогресса в реальном времени.
+- `POST /queue` (`QueueChatController`): Запуск процесса через фоновую очередь (Laravel Queue).
+- `POST /broadcast` (`BroadcastChatController`): Демонстрация вещания событий (Laravel Broadcasting).
 
 Фронтенд реализован на **Bootstrap 5** и нативном **JavaScript**. Он визуализирует различные типы событий от сервера:
 - `supervisor_decision` и `plan_created` — шаги планирования.

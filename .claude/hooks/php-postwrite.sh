@@ -1,81 +1,56 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Write|Edit on .php files inside the project.
-# Runs Pint (format) + php -l (syntax) — inside the configured PHP
-# container if available, otherwise on the host.
+# Docker-only PostToolUse hook for Write|Edit on .php files (WSL2 +
+# Laravel src/ layout).
+# Maps a host path under ${CLAUDE_SRC_PREFIX} to the corresponding
+# path inside ${CLAUDE_PHP_CONTAINER} and runs Pint + php -l there.
 # Silent on success; errors go to stderr so Claude sees them.
+#
+# Required env (set in .claude/settings.local.json):
+#   CLAUDE_PHP_CONTAINER     — name of the running PHP container
+# Optional env:
+#   CLAUDE_SRC_PREFIX        — host path mounted into the container
+#                              (default: <project_root>/src/)
+#   CLAUDE_CONTAINER_ROOT    — container path that maps to SRC_PREFIX
+#                              (default: /var/www/html)
 
-set -u
+set -euo pipefail
 
-# Project root (the directory that contains this hooks/ dir, two levels up).
-project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-project_root="$(dirname "$project_root")"
+# shellcheck source=_lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-# Optional container override:
-#   export CLAUDE_PHP_CONTAINER=my_php_container
+project_root="$(git rev-parse --show-toplevel 2>/dev/null || (cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd))"
+
 container="${CLAUDE_PHP_CONTAINER:-}"
-
-# Container src prefix on the host. Override via env when needed.
 src_prefix="${CLAUDE_SRC_PREFIX:-${project_root}/src/}"
+container_root="${CLAUDE_CONTAINER_ROOT:-/var/www/html}"
 
-# Container path that maps to ${src_prefix} (defaults to /var/www/html/).
-container_root="${CLAUDE_CONTAINER_ROOT:-/var/www/html/}"
+payload=$(cat)
+f=$(extract_file_path "$payload")
 
-# Read the file path from the JSON event.
-f=$(python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-print((d.get("tool_response") or {}).get("filePath")
-      or (d.get("tool_input") or {}).get("file_path") or "")
-' 2>/dev/null)
-
+# Only handle PHP files.
 case "$f" in
   *.php) ;;
   *) exit 0 ;;
 esac
 
-# Map host path → relative path under src_prefix; if the file lives
-# elsewhere in the project, fall back to a host-side run.
-rel=""
+# Only handle files that are mounted into the container.
 case "$f" in
-  "$src_prefix"*) rel="${f#$src_prefix}" ;;
+  "${src_prefix}"*) rel="${f#"${src_prefix}"}" ;;
+  *) exit 0 ;;
 esac
 
-run_in_container() {
-  local container_name="$1" rel_path="$2"
-  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$container_name"; then
-    return 2
-  fi
-  docker exec "$container_name" sh -c \
-    './vendor/bin/pint "$1" >/dev/null && php -l "$1" >/dev/null' \
-    _ "${container_root}${rel_path}" 2>&1
-}
-
-run_on_host() {
-  local file="$1"
-  if [ -x "${project_root}/vendor/bin/pint" ]; then
-    "${project_root}/vendor/bin/pint" "$file" >/dev/null 2>&1 || return 1
-  fi
-  php -l "$file" >/dev/null 2>&1
-}
-
-if [ -n "$container" ] && [ -n "$rel" ]; then
-  if out=$(run_in_container "$container" "$rel"); then
-    exit 0
-  else
-    rc=$?
-    if [ "$rc" -eq 2 ]; then
-      run_on_host "$f" && exit 0
-      out=$(run_on_host "$f" 2>&1)
-    fi
-    echo "$out" >&2
-    exit 1
-  fi
+# Skip silently if the container is missing or not running. Don't
+# block the user's flow because their dev container was stopped.
+if [ -z "$container" ] \
+   || ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$container"; then
+  exit 0
 fi
 
-if ! out=$(run_on_host "$f" 2>&1); then
+target="${container_root%/}/${rel}"
+
+if ! out=$(docker exec --workdir "$container_root" "$container" \
+            sh -c './vendor/bin/pint "$1" 2>&1 && php -l "$1" 2>&1' \
+            _ "$target" 2>&1); then
   echo "$out" >&2
   exit 1
 fi

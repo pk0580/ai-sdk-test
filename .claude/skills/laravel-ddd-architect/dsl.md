@@ -54,6 +54,7 @@ value-object Money {
 
     operations:
         add(other: Money): Money
+        equals(other: Money): bool
 }
 ```
 
@@ -95,7 +96,8 @@ repository OrderRepository {
 - `aggregate` → Entity (Domain) + private constructor + named
   constructors + intent methods
 - `value-object` → `readonly class` (Domain) with invariants in
-  constructor and `equals(self): bool`
+  constructor, `equals(self $other): bool` method, and any declared
+  `operations`
 - `use-case` → DTO (Application) + Action / UseCase (Application)
 - `query` → Query DTO + read repository method + read-side DTO
 - `repository` → interface in Domain + Eloquent impl in Infrastructure

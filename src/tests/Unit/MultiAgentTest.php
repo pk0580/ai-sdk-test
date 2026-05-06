@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Application\Ai\Conversation\DTO\StartConversationInput;
+use App\Application\Ai\Conversation\StartConversation\StartConversationAction;
+use App\Application\Ai\Conversation\StartConversation\StartConversationData;
 use App\Application\Ai\Conversation\Event\StepRequested;
 use App\Application\Ai\Conversation\Event\WorkflowStarted;
-use App\Application\Ai\Conversation\UseCase\StartConversationUseCase;
 use App\Domain\Ai\Conversation\Conversation;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
@@ -23,11 +23,11 @@ class MultiAgentTest extends TestCase
     {
         Event::fake();
 
-        /** @var StartConversationUseCase $useCase */
-        $useCase = app(StartConversationUseCase::class);
-        $output = $useCase->execute(new StartConversationInput("Simple task"));
+        /** @var StartConversationAction $action */
+        $action = app(StartConversationAction::class);
+        $result = $action->handle(new StartConversationData("Simple task"));
 
-        $conversation = $output->conversation;
+        $conversation = $result->conversation;
         $this->assertInstanceOf(Conversation::class, $conversation);
         $this->assertEquals("Simple task", $conversation->input);
 

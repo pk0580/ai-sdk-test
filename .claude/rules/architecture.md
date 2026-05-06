@@ -1,83 +1,154 @@
-# Architecture
+# Workflow
 
-Clean Architecture, four layers, strict dependency direction.
+## Mode Detection
 
-```
-UI  →  Application  →  Domain
-          ↑
-  Infrastructure (implements interfaces from Domain / Application)
-```
+Detect from user intent. If unclear, ask once or default to `FEATURE`.
 
-- **Domain** does not know about any other layer.
-- **Application** depends only on Domain.
-- **Infrastructure** depends on Application and Domain to implement their interfaces.
-- **UI** depends on Application. UI must not import from Domain except when presenting a domain value (e.g., rendering a `Money` VO).
-
-A dependency violation is a bug. Architecture tests enforce this.
+| Mode | Trigger words | Pipeline |
+|---|---|---|
+| `FEATURE` | add, implement, build, create | ARCHITECT → IMPLEMENT → SELF-REVIEW → QA |
+| `FIX` | bug, broken, fails, wrong, crash | REPRODUCE → IMPLEMENT (minimal diff, root cause) → SELF-REVIEW (+regression test) |
+| `REFACTOR` | refactor, clean up, rename, extract, simplify | PLAN → IMPLEMENT (no behavior change) → SELF-REVIEW (tests untouched or only moved) |
+| `TEST` | add tests, cover, missing tests | QA only |
 
 ---
 
-## Layer Responsibilities
+## Pipeline Steps
 
-### Domain
+### ARCHITECT (FEATURE only)
 
-- Entities with behavior and invariants.
-- Value objects (immutable, equality by value).
-- Domain services for logic that does not naturally belong to an entity.
-- Domain events.
-- Repository **interfaces** only.
+- Determine complexity tier: **Simple / Medium / Complex** using signals from `.claude/skills/laravel-ddd-architect/instructions.md`.
+- For Complex features, show the full folder tree before generating any files.
+- State the rationale in 1–2 sentences.
+- If the tier is ambiguous, ask the user once: list the rules/invariants you see and ask which tier fits.
 
-Must not import:
+### REPRODUCE (FIX only)
 
-- `Illuminate\*`, `Eloquent`, `Http`, `Cache`, `Queue`, `Event`, `Log`, `DB`
-- Symfony Messenger, Doctrine
-- Any transport, serialization, or framework concern
+- Write a failing test that proves the bug exists before touching production code.
+- If a test is not possible (environment-specific, infra-level), describe the reproduction steps verbatim.
+- Commit the failing test separately so the fix is clearly isolated.
 
-### Application
+### IMPLEMENT
 
-- Use cases, implemented as Actions or Command/Query handlers.
-- DTOs for input and output.
-- Orchestration and transactions (wrap writes in `DB::transaction()` *inside* Infrastructure adapters, not in Domain; the Action calls the adapter).
-- Interfaces for infrastructure ports (e.g., `PaymentGateway`, `MailSender`) when the project is large enough to justify them; otherwise inject concrete Infrastructure classes.
+- One code block per file; file path on its own line above the block.
+- Omit unchanged portions; show ≤ 3 lines of context around each change.
+- No drive-by formatting changes mixed with logic changes.
+- No `TODO` left for the reviewer — do it now or explain why not.
 
-Must not:
+### SELF-REVIEW
 
-- Hold business rules that belong in Domain
-- Contain persistence code
-- Return Eloquent models
+- Run the checklist in `.claude/rules/quality_gate.md`.
+- Report **at most 5 issues**, or the single word `OK`.
+- Loop: fix → review, **at most 3 iterations**.
+- After 3 loops without `OK`: surface the unresolved issue and stop.
 
-### Infrastructure
+### QA
 
-- Eloquent models, Eloquent-backed repositories, query builders.
-- HTTP clients, queue drivers, cache, mail, storage.
-- Third-party SDK adapters.
-- Implements interfaces declared in Domain or Application.
+- List every test added or modified: test name + what it covers.
+- Every new behavior path has at least one test.
+- Every bug fix has a regression test.
+- Architecture tests (`arch()`) updated when new namespaces are introduced.
 
-Infrastructure classes map between framework objects (e.g., `User` Eloquent model) and Domain objects (`User` entity). Never leak Eloquent outside Infrastructure.
+### TEST (standalone)
 
-### UI
+`TEST` mode skips directly to QA. No ARCHITECT or IMPLEMENT steps.
 
-- HTTP controllers (invokable, one use case per controller for non-trivial features).
-- Console commands.
-- Form Requests (validation + `authorize()`).
-- API Resources or Response DTOs.
-- Blade templates, Livewire components.
-
-Controllers must be thin: validate → build DTO → invoke Action → return response.
+- Detect testing framework before writing: check `src/composer.json` for `pestphp/pest`, else PHPUnit 12.
+- Mirror source layout under `src/tests/`:
+  - Domain → `Unit/Domain/{Ctx}/`
+  - Application → `Unit/Application/{Ctx}/`
+  - Infrastructure → `Integration/Infrastructure/{Ctx}/`
+  - Controller → `Feature/{Ctx}/`
+- Use stubs in `.claude/skills/laravel-ddd-architect/Tests/`.
+- Architecture tests in `src/tests/Architecture/` when new namespaces are introduced.
+- Follow all QA rules above.
 
 ---
 
-## When to Skip a Layer
+## General Constraints
 
-For **Simple** complexity (see `rules/decision.md`):
+- Never repeat the same file twice in one response.
+- No pseudo-code. Production-ready only.
+- No `// @phpstan-ignore` without a comment explaining the exception.
+- No `sleep()` in tests; use Laravel fakes.
+- Complexity matches the task — do not apply DDD to trivial CRUD.
+# Output Format
 
-- Skip Domain entities; use Eloquent directly in Infrastructure with a thin Form Request + Controller + API Resource.
-- Skip the repository interface; inject the Eloquent model or a query class directly.
+Every response that produces code starts with a single header line:
 
-For **Medium**:
+```
+[MODE] [COMPLEXITY] [ARCH]
+```
 
-- Keep Domain minimal or absent; put rules in the Action.
-- Use Eloquent models as the persistence shape.
-- DTO at the Application boundary.
+Examples:
+- `[FEATURE] [MEDIUM] [Action+DTO]`
+- `[FIX] [SIMPLE] [CRUD]`
+- `[REFACTOR] [COMPLEX] [DDD]`
 
-Do not force four layers onto a 20-line feature.
+---
+
+## Full Template
+
+```
+[MODE] [COMPLEXITY] [ARCH]
+
+Brief rationale: 1–2 sentences on why this tier and pattern.
+
+--- IMPLEMENTATION ---
+
+src/app/Path/To/FirstFile.php
+```php
+<?php
+// full file content
+```
+
+src/app/Path/To/SecondFile.php
+```php
+<?php
+// full file content
+```
+
+--- SELF-REVIEW ---
+
+1. Specific issue description (or the single word: OK)
+
+--- FIX ---
+
+(Only present if SELF-REVIEW found issues. Show only changed portions.)
+
+src/app/Path/To/File.php
+```php
+// ≤3 lines of context
+// changed lines
+// ≤3 lines of context
+```
+
+--- QA ---
+
+src/tests/Feature/Order/CreateOrderTest.php — happy path, 422 on missing items, 401 unauthenticated
+src/tests/Unit/Domain/Order/OrderTest.php — invariant: cannot pay a Draft order
+```
+
+---
+
+## File Block Rules
+
+- **One code block per file.** Never split a file across multiple blocks.
+- **File path** on its own plain line above the block (not inside the code as a comment).
+- **`declare(strict_types=1);`** at the top of every PHP file.
+- **Full file content** for new files. For existing files being modified, show only the changed method/section with ≤ 3 lines of context.
+- **Do not repeat** the same file twice in one response.
+- **No pseudo-code.** Every snippet must be valid, runnable PHP.
+
+## Content Rules
+
+- No inline `// TODO` left for the reviewer.
+- No `// @phpstan-ignore` without an explanation comment immediately after.
+- No commented-out code blocks.
+- Identifiers and comments in English even when the response prose is in Russian.
+
+## Rationale Line
+
+One to two sentences explaining:
+- Why this complexity tier (not the next one up).
+- The key architectural choice made (e.g., "Action + DTO because there is one side effect but no invariants").

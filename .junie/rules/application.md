@@ -87,7 +87,7 @@ final readonly class CreateOrderData
 
 ## Commands and Queries (optional)
 
-Adopt CQRS when reads and writes diverge enough to justify two models. Otherwise, plain Actions suffice. See `advanced/cqrs.md`.
+Adopt CQRS when reads and writes diverge enough to justify two models. Otherwise, plain Actions suffice. See `rules/advanced_patterns.md` (CQRS section).
 
 ## Errors
 

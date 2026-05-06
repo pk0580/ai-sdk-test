@@ -1,83 +1,692 @@
-# Architecture
+# Workflow
 
-Clean Architecture, four layers, strict dependency direction.
-
-```
-UI  →  Application  →  Domain
-          ↑
-  Infrastructure (implements interfaces from Domain / Application)
-```
-
-- **Domain** does not know about any other layer.
-- **Application** depends only on Domain.
-- **Infrastructure** depends on Application and Domain to implement their interfaces.
-- **UI** depends on Application. UI must not import from Domain except when presenting a domain value (e.g., rendering a `Money` VO).
-
-A dependency violation is a bug. Architecture tests enforce this.
+Every task runs in one of four modes. Detect the mode from the user's intent before writing code.
 
 ---
 
-## Layer Responsibilities
+## Modes
 
-### Domain
+| Mode | Trigger words | Primary goal |
+|---|---|---|
+| `FEATURE` | add, implement, build, create | Deliver new behavior behind a clean boundary |
+| `FIX` | bug, broken, fails, wrong, crash | Restore expected behavior with minimal diff |
+| `REFACTOR` | refactor, clean up, rename, extract, simplify | Change shape without changing behavior |
+| `TEST` | add tests, cover, missing tests, increase coverage | Raise test confidence |
 
-- Entities with behavior and invariants.
-- Value objects (immutable, equality by value).
-- Domain services for logic that does not naturally belong to an entity.
-- Domain events.
-- Repository **interfaces** only.
+If intent is ambiguous, ask once; otherwise default to `FEATURE`.
 
-Must not import:
+---
 
-- `Illuminate\*`, `Eloquent`, `Http`, `Cache`, `Queue`, `Event`, `Log`, `DB`
-- Symfony Messenger, Doctrine
-- Any transport, serialization, or framework concern
+## Pipelines
+
+### FEATURE
+
+1. **ARCHITECT** — pick complexity tier, layer boundaries, and the module's directory layout. Announce the decision in the response header.
+2. **IMPLEMENT** — write code per the chosen templates. No speculative abstraction.
+3. **SELF-REVIEW** — run the checklist in `rules/quality_gate.md`. List issues or write `OK`.
+4. **QA** — add or extend tests; describe what is covered.
+
+### FIX
+
+1. **REPRODUCE** — describe the failing path in one or two sentences. If you cannot reproduce, say so explicitly.
+2. **IMPLEMENT** — change the smallest amount of code that addresses the root cause. No drive-by edits. Do not rename, reformat, or restructure unrelated code.
+3. **SELF-REVIEW** — verify the fix does not introduce regressions elsewhere. Add a regression test.
+
+### REFACTOR
+
+1. **PLAN** — list the moves. Keep public APIs stable unless the task is the rename.
+2. **IMPLEMENT** — mechanical changes; no behavior changes.
+3. **SELF-REVIEW** — confirm tests are untouched or only moved. All green.
+
+### TEST
+
+1. **QA** — identify untested paths; add feature tests first, then unit tests.
+
+---
+
+## Self-Review Loop
+
+After IMPLEMENT, run SELF-REVIEW. If it reports issues, apply FIX, then SELF-REVIEW again. Maximum 3 loops; stop on `OK`.
+
+Do not ship code with unresolved SELF-REVIEW issues. If you cannot resolve them in 3 loops, surface the blocker and stop.
+
+---
+
+## Constraints
+
+- Prefer the simplest solution that meets the requirements.
+- Fix root causes. Do not mute errors, skip tests, or suppress warnings to make a check pass.
+- Do not introduce TODOs for the reviewer. Either do it now or leave it out and explain why.
+- Do not bundle unrelated changes into a FIX. They belong in a follow-up REFACTOR.
+# Output Format
+
+Every response that produces code must start with a header line identifying mode, complexity, and architecture tier.
+
+```
+[MODE] [COMPLEXITY] [ARCH]
+```
+
+Examples:
+
+- `[FEATURE] [MEDIUM] [Action+DTO]`
+- `[FIX] [SIMPLE] [CRUD]`
+- `[REFACTOR] [COMPLEX] [DDD]`
+
+---
+
+## Sections
+
+Follow this structure. Omit a section if it is not relevant to the task.
+
+```
+[MODE] [COMPLEXITY] [ARCH]
+
+Brief rationale: 1–2 sentences on why this tier was chosen.
+
+--- IMPLEMENTATION ---
+<code blocks, grouped by file, with the full file path as the block header>
+
+--- SELF-REVIEW ---
+<at most 5 issues, or the single word: OK>
+
+--- FIX ---
+<only if SELF-REVIEW found issues; show the changed portions only>
+
+--- QA ---
+<tests added or modified, with test names and what they cover>
+```
+
+---
+
+## Code Blocks
+
+- One block per file.
+- Precede each block with the file path on its own line.
+- `declare(strict_types=1);` at the top of every PHP file, immediately after the opening `<?php` tag.
+- Omit unchanged portions when fixing; show context of at most 3 lines around the change.
+- Do not repeat the same file twice in one response; combine edits.
+
+Example:
+
+```
+// src/app/Application/Order/CreateOrder/CreateOrderAction.php
+final readonly class CreateOrderAction { ... }
+```
+
+---
+
+## Prose
+
+- Prefer lists over paragraphs.
+- No marketing language ("robust", "seamless", "powerful").
+- No restating the user's question back to them.
+- Mention trade-offs the reviewer should know about (e.g., "chose Medium over Complex because there is no state machine yet; revisit if a `payment_failed` state is added").
+
+---
+
+## When You Cannot Complete the Task
+
+State clearly:
+
+1. What you tried.
+2. What blocked you.
+3. What you need from the user to continue.
+
+Do not ship partial code with `TODO`s to hide an incomplete implementation.
+# Project Structure
+
+Two valid layouts. Choose based on project size.
+
+---
+
+## Small / Medium Projects — Layer-First
+
+```
+src/app/
+├── Domain/
+│   ├── Order/
+│   │   ├── Order.php
+│   │   ├── OrderId.php
+│   │   ├── OrderStatus.php
+│   │   ├── OrderRepository.php        // interface
+│   │   └── Events/OrderPaid.php
+│   └── Customer/
+├── Application/
+│   ├── Order/
+│   │   ├── CreateOrder/
+│   │   │   ├── CreateOrderAction.php
+│   │   │   └── CreateOrderData.php    // DTO
+│   │   └── CancelOrder/
+│   └── Shared/
+├── Infrastructure/
+│   ├── Persistence/
+│   │   └── Eloquent/
+│   │       ├── Models/OrderModel.php
+│   │       └── Repositories/EloquentOrderRepository.php
+│   ├── Mail/
+│   └── Http/Clients/
+└── Interface/
+    ├── Http/
+    │   ├── Order/
+    │   │   ├── Controller/CreateOrderController.php
+    │   │   ├── Request/CreateOrderRequest.php
+    │   │   └── Resource/OrderResource.php
+    └── Console/Commands/
+
+src/tests/
+├── Unit/Domain/Order/OrderTest.php
+├── Feature/Order/CreateOrderTest.php
+└── Integration/Infrastructure/Persistence/EloquentOrderRepositoryTest.php
+```
+
+---
+
+## Large Projects — Domain-First (Modules)
+
+Each module is a bounded context. Cross-module access goes through public Actions or events, not by reaching into another module's Domain.
+
+```
+src/app/
+└── Modules/
+    ├── Order/
+    │   ├── Domain/
+    │   ├── Application/
+    │   ├── Infrastructure/
+    │   └── UI/
+    ├── Billing/
+    │   ├── Domain/
+    │   ├── Application/
+    │   ├── Infrastructure/
+    │   └── UI/
+    └── Catalog/
+        ├── Domain/
+        ├── Application/
+        ├── Infrastructure/
+        └── UI/
+```
+
+Routing, service providers, migrations, and tests can live inside each module or at the app root depending on team preference; keep it consistent per project.
+
+---
+
+## Dependency Flow
+
+```
+HTTP Request
+    ↓
+Interface\Http\{Ctx}\Controller\*Controller
+    ↓ (validated DTO)
+Application\{Ctx}\*Action
+    ↓ (domain calls)
+Domain\{Ctx}\*Entity / *Repository
+    ↑ (implementation)
+Infrastructure\{Ctx}\Persistence\Eloquent\Repositories\Eloquent*Repository
+    ↓
+Database
+```
+
+---
+
+## Naming Per Layer
+
+| Layer | Suffixes / forms |
+|---|---|
+| Domain | `Order`, `OrderId`, `Money`, `OrderRepository` (interface) |
+| Application | `CreateOrderAction`, `CreateOrderData`, `GetOrderQuery`, `OrderDto` |
+| Infrastructure | `OrderModel`, `EloquentOrderRepository`, `StripePaymentGateway` |
+| Interface/Http | `CreateOrderController`, `CreateOrderRequest`, `OrderResource` |
+
+Do not name anything `OrderManager`, `OrderHelper`, `OrderUtil`, or `OrderService` unless the project's legacy code already uses the suffix and renaming is out of scope.
+
+---
+
+## DTO Placement
+
+DTOs belong in **Application** or **UI**. Never in Domain. A Domain VO is not a DTO; it expresses a concept (`Money`, `Email`), not a transport shape.
+
+---
+
+## Test Layout
+
+Mirror the production layout under `src/tests/`:
+
+```
+src/tests/
+├── Unit/Domain/Order/OrderTest.php
+├── Feature/Order/CreateOrderTest.php
+└── Integration/Infrastructure/Persistence/EloquentOrderRepositoryTest.php
+```
+# Module Generation
+
+When creating a new feature at **Medium** or **Complex** complexity, generate the full set of files below. Do not collapse everything into one class.
+
+---
+
+## Example: `Order` module at Complex tier
+
+### Domain (`src/app/Domain/Order/` or `src/app/Modules/Order/Domain/`)
+
+```
+Order.php                  // Aggregate root
+OrderId.php                // Value object
+OrderStatus.php            // Enum or VO
+Money.php                  // VO, shared
+OrderRepository.php        // Interface
+Events/
+  OrderCreated.php
+  OrderPaid.php
+Exceptions/
+  OrderNotFound.php
+  InvalidOrderStatus.php
+```
 
 ### Application
 
-- Use cases, implemented as Actions or Command/Query handlers.
-- DTOs for input and output.
-- Orchestration and transactions (wrap writes in `DB::transaction()` *inside* Infrastructure adapters, not in Domain; the Action calls the adapter).
-- Interfaces for infrastructure ports (e.g., `PaymentGateway`, `MailSender`) when the project is large enough to justify them; otherwise inject concrete Infrastructure classes.
-
-Must not:
-
-- Hold business rules that belong in Domain
-- Contain persistence code
-- Return Eloquent models
+```
+Order/
+  CreateOrder/
+    CreateOrderAction.php
+    CreateOrderData.php
+  PayOrder/
+    PayOrderAction.php
+    PayOrderData.php
+  CancelOrder/
+    CancelOrderAction.php
+    CancelOrderData.php
+  Queries/
+    GetOrderQuery.php
+    GetOrderHandler.php
+    OrderView.php          // Read-side DTO
+```
 
 ### Infrastructure
 
-- Eloquent models, Eloquent-backed repositories, query builders.
-- HTTP clients, queue drivers, cache, mail, storage.
-- Third-party SDK adapters.
-- Implements interfaces declared in Domain or Application.
-
-Infrastructure classes map between framework objects (e.g., `User` Eloquent model) and Domain objects (`User` entity). Never leak Eloquent outside Infrastructure.
+```
+Persistence/Eloquent/
+  Models/
+    OrderModel.php
+    OrderItemModel.php
+  Repositories/
+    EloquentOrderRepository.php
+  Mappers/
+    OrderMapper.php        // Eloquent ↔ Domain
+Events/
+  Listeners/
+    SendOrderReceipt.php
+```
 
 ### UI
 
-- HTTP controllers (invokable, one use case per controller for non-trivial features).
-- Console commands.
-- Form Requests (validation + `authorize()`).
-- API Resources or Response DTOs.
-- Blade templates, Livewire components.
+```
+Http/
+  Controllers/
+    CreateOrderController.php    // invokable
+    PayOrderController.php
+    GetOrderController.php
+  Requests/
+    CreateOrderRequest.php       // extends FormRequest, has authorize() + rules()
+    PayOrderRequest.php
+  Resources/
+    OrderResource.php
+Console/Commands/
+  (optional artisan commands)
+```
 
-Controllers must be thin: validate → build DTO → invoke Action → return response.
+### Tests
+
+```
+src/tests/Unit/Domain/Order/
+  OrderTest.php
+  OrderIdTest.php
+  MoneyTest.php
+src/tests/Feature/Order/
+  CreateOrderTest.php
+  PayOrderTest.php
+src/tests/Integration/Infrastructure/Order/
+  EloquentOrderRepositoryTest.php
+src/tests/Architecture/
+  OrderArchTest.php
+```
 
 ---
 
-## When to Skip a Layer
+## Example: `Invoice` module at Medium tier
 
-For **Simple** complexity (see `rules/decision.md`):
+Skip Domain entities and the repository interface. Use Eloquent directly.
 
-- Skip Domain entities; use Eloquent directly in Infrastructure with a thin Form Request + Controller + API Resource.
-- Skip the repository interface; inject the Eloquent model or a query class directly.
+```
+src/app/Application/Invoice/
+  CreateInvoice/
+    CreateInvoiceAction.php
+    CreateInvoiceData.php
+src/app/Infrastructure/Persistence/Eloquent/Models/InvoiceModel.php
+src/app/Interface/Http/Invoice/
+  Controller/CreateInvoiceController.php
+  Request/CreateInvoiceRequest.php
+  Resource/InvoiceResource.php
+src/tests/Feature/Invoice/CreateInvoiceTest.php
+```
 
-For **Medium**:
+---
 
-- Keep Domain minimal or absent; put rules in the Action.
-- Use Eloquent models as the persistence shape.
-- DTO at the Application boundary.
+## Rules
 
-Do not force four layers onto a 20-line feature.
+- A feature is never a single class. Even a simple CRUD needs Model + Request + Controller + Resource + test.
+- Create the directories even if a file is empty. Placeholders make intent clear.
+- Wire service providers and route declarations in the same change, not later.
+- If the module introduces a queue handler or event listener, register it in the same change.
+# Templates
+
+Pick the template set matching the complexity tier (see the Architecture Decision section above).
+
+---
+
+## Simple — CRUD
+
+Eloquent + Form Request + Controller + API Resource.
+Every file starts with `<?php\ndeclare(strict_types=1);`.
+
+```php
+// src/app/Models/Customer.php
+final class Customer extends Model
+{
+    protected $fillable = ['name', 'email'];
+}
+
+// src/app/Interface/Http/Customer/Request/CreateCustomerRequest.php
+final class CreateCustomerRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()?->can('create', Customer::class) ?? false;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:customers,email'],
+        ];
+    }
+}
+
+// src/app/Interface/Http/Customer/Controller/CustomerController.php
+final class CustomerController
+{
+    public function store(CreateCustomerRequest $request): CustomerResource
+    {
+        return CustomerResource::make(
+            Customer::create($request->validated()),
+        );
+    }
+}
+
+// src/app/Interface/Http/Customer/Resource/CustomerResource.php
+final class CustomerResource extends JsonResource
+{
+    public function toArray($request): array
+    {
+        return ['id' => $this->id, 'name' => $this->name, 'email' => $this->email];
+    }
+}
+```
+
+---
+
+## Medium — Action + DTO
+
+Action encapsulates the use case. DTO at the Application boundary. No repository interface yet.
+
+```php
+// src/app/Application/Customer/CreateCustomer/CreateCustomerData.php
+final readonly class CreateCustomerData
+{
+    public function __construct(
+        public string $name,
+        public string $email,
+    ) {}
+
+    public static function fromRequest(CreateCustomerRequest $request): self
+    {
+        return new self(
+            name:  $request->validated('name'),
+            email: $request->validated('email'),
+        );
+    }
+}
+
+// src/app/Application/Customer/CreateCustomer/CreateCustomerAction.php
+final readonly class CreateCustomerAction
+{
+    public function __construct(
+        private DatabaseManager $db,
+        private Dispatcher $events,
+    ) {}
+
+    public function handle(CreateCustomerData $data): Customer
+    {
+        return $this->db->transaction(function () use ($data) {
+            $customer = Customer::create([
+                'name'  => $data->name,
+                'email' => $data->email,
+            ]);
+
+            $this->events->dispatch(new CustomerRegistered($customer->id));
+
+            return $customer;
+        });
+    }
+}
+
+// src/app/Interface/Http/Customer/Controller/CreateCustomerController.php
+final class CreateCustomerController
+{
+    public function __invoke(
+        CreateCustomerRequest $request,
+        CreateCustomerAction $action,
+    ): CustomerResource {
+        return CustomerResource::make(
+            $action->handle(CreateCustomerData::fromRequest($request)),
+        );
+    }
+}
+```
+
+---
+
+## Complex — DDD (Aggregate + Repository + Action)
+
+```php
+// src/app/Domain/Order/ValueObject/OrderId.php
+final readonly class OrderId
+{
+    public function __construct(public string $value)
+    {
+        if (!Str::isUuid($value)) {
+            throw new InvalidArgumentException('OrderId must be a UUID');
+        }
+    }
+
+    public static function generate(): self
+    {
+        return new self((string) Str::uuid());
+    }
+}
+
+// src/app/Domain/Order/Entity/Order.php
+final class Order
+{
+    /** @var list<OrderItem> */
+    private array $items = [];
+
+    private function __construct(
+        public readonly OrderId $id,
+        public readonly CustomerId $customerId,
+        private OrderStatus $status,
+    ) {}
+
+    public static function create(CustomerId $customerId): self
+    {
+        return new self(OrderId::generate(), $customerId, OrderStatus::Draft);
+    }
+
+    public function addItem(Sku $sku, int $quantity, Money $price): void
+    {
+        if ($this->status !== OrderStatus::Draft) {
+            throw new InvalidOrderStatusException('Cannot add items to a non-draft order');
+        }
+        $this->items[] = new OrderItem($sku, $quantity, $price);
+    }
+
+    public function markAsPaid(): void
+    {
+        if ($this->status !== OrderStatus::Confirmed) {
+            throw new InvalidOrderStatusException('Only confirmed orders can be paid');
+        }
+        $this->status = OrderStatus::Paid;
+    }
+
+    public function status(): OrderStatus
+    {
+        return $this->status;
+    }
+}
+
+// src/app/Domain/Order/Repository/OrderRepository.php
+interface OrderRepository
+{
+    public function save(Order $order): void;
+    public function findById(OrderId $id): ?Order;
+}
+
+// src/app/Application/Order/CreateOrder/CreateOrderAction.php
+final readonly class CreateOrderAction
+{
+    public function __construct(
+        private OrderRepository $orders,
+        private Dispatcher $events,
+    ) {}
+
+    public function handle(CreateOrderData $data): OrderId
+    {
+        $order = Order::create(new CustomerId($data->customerId));
+
+        foreach ($data->items as $item) {
+            $order->addItem(new Sku($item->sku), $item->quantity, new Money($item->priceCents));
+        }
+
+        $this->orders->save($order);
+        $this->events->dispatch(new OrderCreated($order->id));
+
+        return $order->id;
+    }
+}
+
+// src/app/Infrastructure/Order/Persistence/Eloquent/Repositories/EloquentOrderRepository.php
+final class EloquentOrderRepository implements OrderRepository
+{
+    public function __construct(private OrderMapper $mapper) {}
+
+    public function save(Order $order): void
+    {
+        DB::transaction(function () use ($order) {
+            $model = OrderModel::query()->updateOrCreate(
+                ['id' => $order->id->value],
+                $this->mapper->toRow($order),
+            );
+            $this->mapper->syncItems($model, $order);
+        });
+    }
+
+    public function findById(OrderId $id): ?Order
+    {
+        $model = OrderModel::with('items')->find($id->value);
+        return $model ? $this->mapper->toDomain($model) : null;
+    }
+}
+
+// src/app/Interface/Http/Order/Controller/CreateOrderController.php
+final class CreateOrderController
+{
+    public function __invoke(
+        CreateOrderRequest $request,
+        CreateOrderAction $action,
+    ): JsonResponse {
+        $orderId = $action->handle(CreateOrderData::fromRequest($request));
+
+        return new JsonResponse(
+            ['data' => ['id' => $orderId->value]],
+            Response::HTTP_CREATED,
+        );
+    }
+}
+```
+
+---
+
+## Placeholders
+
+Use these when generating new code. Replace `{Noun}`, `{Verb}`, `{params}` etc. before returning.
+
+- Action: `{Verb}{Noun}Action::handle({Verb}{Noun}Data $data)`
+- DTO: `readonly class {Verb}{Noun}Data`
+- Repository interface: `interface {Noun}Repository { save(); findById(); }`
+- Eloquent repo: `Eloquent{Noun}Repository implements {Noun}Repository`
+- Controller: `{Verb}{Noun}Controller::__invoke({Verb}{Noun}Request, {Verb}{Noun}Action)`
+# Architecture Decision
+
+Match the approach to the actual complexity. Over-architecting a two-field form wastes time and blurs the codebase.
+
+---
+
+## Signals
+
+Count the signals. Use the highest tier that matches.
+
+**Simple (CRUD):**
+- 0–2 business rules
+- No state machine
+- Entity is effectively a database record with validation
+- Feature fits in one controller + one model + one Form Request
+
+**Medium (Actions + DTO):**
+- 2–3 business rules that require orchestration
+- Some side effects (email, event, external call)
+- Transactional write across 1–2 tables
+- Would benefit from being unit-testable without HTTP
+
+**Complex (DDD):**
+- More than 3 interacting business rules
+- State transitions with invariants (order lifecycle, subscription, billing)
+- Multiple aggregates coordinated through events or a saga
+- A bounded context with its own vocabulary
+- High consistency or concurrency requirements
+
+---
+
+## Default to Simpler
+
+When signals straddle two tiers, choose the simpler one. Promotion later is cheap. Demolition of premature DDD is expensive.
+
+Call out in the response header *why* you chose a given tier so the reviewer can challenge it.
+
+Example: `[FEATURE] [MEDIUM] [Action+DTO] // one write, one event, no state machine → Action`
+
+---
+
+## Anti-Signals for DDD
+
+Do not pick DDD when:
+
+- The team has no existing DDD code in the module.
+- The feature is a one-off admin screen or report.
+- The bounded context is unclear or still emerging.
+- The only "rule" is field validation.
+
+---
+
+## When in Doubt
+
+Ask the user: *"This looks like CRUD on the surface but there are N rules (list them). Do you want me to go with Actions + DTO, or is there a state machine here I am missing?"*
+
+Proceed with the simpler tier if no answer arrives.

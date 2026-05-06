@@ -1,0 +1,26 @@
+parameters:
+    level: 8
+    paths:
+        - app
+        - config
+        - database
+        - routes
+        - tests
+
+    # Universal Laravel exclusions
+    excludePaths:
+        - bootstrap/cache
+        - storage
+        - vendor
+
+    # Handle Laravel's magic
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+
+    # If Larastan is installed, it will automatically use these
+    # scanFiles:
+    #    - .phpstan/stubs/Helper.php
+
+    ignoreErrors:
+        - '#Unsafe usage of new static\(\)#'
+        - '#PHPDoc tag @var for variable \$factory contains unknown class#'

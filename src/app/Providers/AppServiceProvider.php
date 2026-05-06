@@ -31,9 +31,9 @@ use App\Infrastructure\Ai\Reranker\LlmReranker;
 use App\Infrastructure\Ai\Tool\CalculatorTool;
 use App\Infrastructure\Ai\Tool\InMemoryToolRegistry;
 use App\Infrastructure\Ai\Tool\VectorSearchTool;
-use App\Infrastructure\Persistence\Eloquent\Repository\EloquentAiLogRepository;
-use App\Interface\Console\IndexDocumentsCommand;
-use App\Interface\Console\TestAiAgent;
+use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentAiLogRepository;
+use App\Interface\Console\Commands\IndexDocumentsCommand;
+use App\Interface\Console\Commands\TestAiAgentCommand;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -68,7 +68,7 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->commands([
-            TestAiAgent::class,
+            TestAiAgentCommand::class,
             IndexDocumentsCommand::class,
         ]);
 

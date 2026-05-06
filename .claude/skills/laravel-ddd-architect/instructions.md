@@ -1,6 +1,6 @@
 # Skill: laravel-ddd-architect
 
-Staff-level Laravel 12 / PHP 8.4 architect.
+Staff-level Laravel 13 / PHP 8.4 architect.
 
 ## Mission
 
@@ -189,10 +189,9 @@ Prefer **invokable controllers** for single-use-case endpoints.
 
 ## Validation & Authorization
 
+Refer to `.claude/rules/quality_gate.md` (Security) and `.claude/rules/technical_stack.md` (API) for detailed rules.
 - Form Request validates HTTP shape and runs `authorize()` first.
 - Domain enforces invariants (throws on violation).
-- Policies for per-instance authorization.
-- `spatie/laravel-permission` for role/permission storage.
 - Never `Model::create($request->all())`.
 
 ---
@@ -209,31 +208,19 @@ Prefer **invokable controllers** for single-use-case endpoints.
 
 ## High-Load Patterns
 
-ALWAYS consider:
-
-- Eager-loading + `Model::preventLazyLoading()` in non-prod
-- Pagination (offset ≤10k rows, cursor beyond)
-- Caching at Infrastructure boundary (tagged + explicit invalidation)
-- Queue workers scaled per business priority (Horizon)
-- DB read replicas for heavy reads
-- Rate limiting (per token + per route)
-- Idempotency-Key on critical writes
-- Circuit breakers + timeouts + retries on external calls
+Refer to `.claude/rules/technical_stack.md` (Performance) and `.claude/rules/technical_stack.md` (Eloquent) for detailed patterns.
+- ALWAYS consider N+1, pagination, caching, and rate limiting on hot paths.
 
 ---
 
 ## Testing Strategy
 
-- **Domain → Pest 4 unit tests** (no Laravel boot).
+Refer to `.claude/rules/quality_gate.md` for detailed testing strategies and examples.
+- Detect testing framework (Pest or PHPUnit) before generating tests.
+- **Domain → Unit tests** (no Laravel boot).
 - **Application → Feature tests** (boot the container).
 - **Infrastructure → Integration tests** (real DB).
-- **Architecture tests** (`Pest arch()`) enforce layer boundaries in CI.
-
-```php
-arch('domain has no framework imports')
-    ->expect('App\Domain')
-    ->not->toUse(['Illuminate', 'Symfony', 'Eloquent']);
-```
+- **Architecture tests** (Pest `arch()` or PHPUnit custom) enforce layer boundaries.
 
 ---
 
@@ -282,20 +269,10 @@ Additionally if needed:
 
 ## Anti-Pattern Detection (AUTO)
 
-Detect and FIX:
-
-- Fat Controller — move logic into an Action
-- Anemic Domain — push behavior into the entity
-- God Service — split into Actions
-- Fat Repository (`findByX`, `findByY`, ...) — extract read repo or
-  query objects
-- Direct Eloquent usage outside Infrastructure (Medium/Complex)
-- Setter-based state transitions (`$order->status = ...`) — replace
-  with intent method (`$order->markAsPaid()`)
-- Primitive obsession (`string $email`) — wrap in VO
-- Mass assignment from `$request->all()` — go through DTO
-- Hidden side effects (mutation in getter, event in `toArray()`)
-- N+1 queries — eager-load or use DTO projection
+Detect and FIX architectural violations using the checklist in `.claude/rules/quality_gate.md`.
+- No business logic in Controllers, Repositories, or Eloquent models.
+- No direct Eloquent usage outside Infrastructure (Medium/Complex).
+- No Mass assignment from `$request->all()`.
 
 ---
 
@@ -331,15 +308,11 @@ Detect and FIX:
 
 ## Output Rules
 
-- PHP 8.4 (use `readonly class`, `#[\Override]`, asymmetric visibility)
-- `declare(strict_types=1);` at the top of every file
-- PSR-12 + Laravel Pint preset
-- Strict typing on every method signature
-- No pseudo-code; production-ready only
-- File-path comment as the first line of every code block
-- Show full folder tree before generating files for a Complex feature
-- Reference `claude/skills/laravel-ddd-architect/*.stub` placeholders
-  when a stub fits
+Refer to `.claude/rules/architecture.md` for detailed formatting rules.
+- PHP 8.4 syntax, strict types, PSR-12.
+- File-path comment as the first line of every code block.
+- Show full folder tree before generating files for a Complex feature.
+- Reference `.claude/skills/laravel-ddd-architect/{Domain|Application|Infrastructure|UI|Tests}/*.stub` placeholders when a stub fits.
 
 ---
 
