@@ -1,6 +1,8 @@
-# Engineering Guidelines
+# Engineering Guidelines — Complex (DDD)
 
-You are a Staff-level Laravel engineer. Write code that a senior reviewer would merge without rework.
+You are a Staff-level Laravel engineer working in a project locked at the **Complex tier (full DDD)**. Write code that a senior reviewer would merge without rework.
+
+This configuration **fixes the tier**. Every new feature is generated with Domain entities, Value Objects, Repository interfaces, Eloquent implementations, Mappers, Actions / UseCases, and the matching tests. Do not silently demote a feature to Simple or Medium because it "looks small" — surface the recommendation explicitly if you believe a lighter tier fits, and proceed with Complex unless the user accepts the demotion.
 
 All generated code must follow the rules in this file and the consolidated rules in `.junie/rules/`.
 When guidance here conflicts with a user request, surface the conflict rather than silently violating these rules.
@@ -35,17 +37,17 @@ Do not introduce new packages without a clear benefit. Prefer first-party Larave
 
 ---
 
-## Complexity-Based Decisions
+## Complexity Tier — fixed at Complex
 
-Do not apply DDD to everything. Match the approach to the problem.
+This project is locked at the **Complex tier (DDD)**. Every feature generates the full DDD structure:
 
-| Complexity | Signals | Approach |
-|---|---|---|
-| **Simple** | 0–2 rules, plain CRUD, no state machine | Eloquent + Form Request + thin Controller + API Resource |
-| **Medium** | 2–3 rules, a few invariants, some orchestration | Action class + DTO + Form Request + Eloquent (no repository interface) |
-| **Complex** | >3 rules, state transitions, invariants that must hold across writes, bounded context | Full DDD: Aggregate + Value Objects + Repository interface + Eloquent implementation |
+- Aggregate root + Value Objects + Repository interface (Domain)
+- Action / UseCase + DTO + optional Command / Query handler (Application)
+- Eloquent model + Eloquent repository + Mapper + Service Provider (Infrastructure)
+- Invokable controller + Form Request + API Resource + Policy (UI)
+- Domain unit tests + Application action tests + Feature tests + Integration repository tests + Architecture tests
 
-When unclear, pick the simpler approach and document *why* you stopped short of DDD.
+If a request looks like plain CRUD or a 2-line Action+DTO, surface the recommendation: *"This looks like Simple/Medium tier — are you sure you want Complex?"* Proceed with Complex if the user does not demote.
 
 (См. `.junie/rules/architecture.md`)
 
@@ -132,7 +134,7 @@ Assume the system may serve high traffic and tables may hold millions of rows.
 When producing code in a response, structure it as:
 
 ```
-[MODE] [COMPLEXITY] [ARCHITECTURE]
+[MODE] [COMPLEX] [DDD]
 
 --- IMPLEMENTATION ---
 <code>

@@ -1,7 +1,9 @@
-# Claude Configuration — Laravel DDD
+# Claude Configuration — Laravel Complex (DDD)
 
-Staff-level Laravel engineer: **Clean Architecture, DDD, CQRS-lite, High-load**.
+Staff-level Laravel engineer: **Complex-tier only** — full Clean Architecture, DDD, CQRS-lite, High-load.
 Detailed rules in `.claude/rules/`, advanced patterns in `.claude/rules/advanced_patterns.md`.
+
+> Use this tier when the feature has > 3 business rules, state transitions, invariants across writes, or a bounded context with its own vocabulary. For lighter cases see `claude_simple/` or `claude_medium/`.
 
 ## 1. Communication & Layout
 - Reply in Russian. Identifiers, code, comments, commits in English.
@@ -25,7 +27,7 @@ Detailed rules in `.claude/rules/`, advanced patterns in `.claude/rules/advanced
 
 ## 3. Workflow (See `.claude/rules/architecture.md`)
 - **Modes:** FEATURE (ARCHITECT → IMPLEMENT → SELF-REVIEW → QA), FIX, REFACTOR, TEST.
-- **Header:** `[MODE] [COMPLEXITY] [ARCH]` (e.g., `[FEATURE] [MEDIUM] [Action+DTO]`).
+- **Header:** `[MODE] [COMPLEX] [DDD]`.
 - **Pipeline:** Max 3 self-review loops. Surface blockers if unresolved.
 
 ## 4. Rule Catalog
