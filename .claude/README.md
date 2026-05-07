@@ -130,8 +130,8 @@ high-load паттернами. Рассчитана на **Docker-only workflow
 ## Хуки
 
 Все хуки выполняются **в контексте WSL2 bash**. На хосте необходимы
-`bash`, `python3` (используется в `_lib.sh` для разбора JSON) и `docker`
-(стандартный набор WSL2 Ubuntu).
+`bash`, `docker`, `python3` (используется в `_lib.sh` для разбора JSON —
+если нет Python, используется grep) (стандартный набор WSL2 Ubuntu).
 Общие утилиты вынесены в `_lib.sh` (parses `tool_input.file_path`,
 нормализует UNC-пути через `wslpath`).
 

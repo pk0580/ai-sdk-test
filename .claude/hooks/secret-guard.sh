@@ -18,7 +18,7 @@ f=$(extract_file_path "$payload")
 #    Bash the file_path is empty so this falls through harmlessly).
 case "$f" in
   *.env.example|*.env.sample|*.env.dist) ;; # Allow committed templates
-  *.env|*.env.local|*.env.production|*.env.prod|*.env.staging|*.env.stage|*.env.development|*.env.dev|*.env.test|*.env.testing|*id_rsa*|*id_dsa*|*.pem|*.key|*credentials.json|*secrets.json)
+  *.env|*.env.local|*.env.production|*.env.prod|*.env.staging|*.env.stage|*.env.development|*.env.dev|*.env.test|*.env.testing|*/id_rsa*|*/id_dsa*|*.pem|*.key|*credentials.json|*secrets.json)
     echo "secret-guard: refusing to write to '$f' — looks like a secret file." >&2
     exit 1
     ;;

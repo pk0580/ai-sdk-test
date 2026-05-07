@@ -252,7 +252,9 @@ Eloquent is an Infrastructure concern. It is excellent at mapping rows to object
 
 ## Placement
 
-- All Eloquent models live in `src/app/Infrastructure/Persistence/Eloquent/Models/` (or `src/app/Models/` for Simple tier).
+- All Eloquent models live in `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Models/` (or `src/app/Models/` for Simple tier).
+- Repository implementations live in `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Repositories/Eloquent{Name}Repository.php`.
+- Mappers live in `src/app/Infrastructure/{Ctx}/Persistence/Eloquent/Mappers/`.
 - Models must not be imported into Domain or Application code in Medium or Complex tiers. Application receives Domain objects or DTOs.
 
 ## Model Responsibilities
@@ -647,7 +649,7 @@ Events decouple a state change from its side effects. They are not a free-for-al
 
 ## Two Kinds of Events
 
-1. **Domain events** — business facts. Past tense. Live in `Domain/<Module>/Events/`.
+1. **Domain events** — business facts. Past tense. Live in `Domain/{Ctx}/Event/`.
    - `OrderPaid`, `SubscriptionCancelled`, `InvoiceIssued`.
    - Raised by entities or Actions after a successful write.
 2. **Framework events** — Laravel lifecycle (`Authenticated`, `MessageSent`, `MigrationStarted`).

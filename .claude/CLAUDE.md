@@ -17,7 +17,7 @@ Detailed rules in `.claude/rules/`, advanced patterns in `.claude/rules/advanced
 
 ## 2. Tech Stack
 - **PHP 8.4** (readonly, hooks, asymmetric visibility, #[\Override])
-- **Laravel 13**, **PHPUnit 12** / **Pest 4** (auto-detect by `/test`), **Pint**, **PHPStan L8** (auto-detect by `/phpstan`: runs only if installed)
+- **Laravel 13**, **PHPUnit 12** (installed) / **Pest 4** (preferred, requires `pestphp/pest`), **Pint**, **PHPStan L8** (auto-detect by `/phpstan`: runs only if installed)
 - **DTO:** `readonly class` or `spatie/laravel-data`
 - **DB:** PostgreSQL (pref), MySQL, SQLite (tests)
 - **Pre-approved:** `spatie/` (laravel-data, permission, query-builder)

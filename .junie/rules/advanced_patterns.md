@@ -149,8 +149,11 @@ final readonly class PayOrderHandler
             $order = $this->orders->findById(new OrderId($cmd->orderId)) ?? throw new OrderNotFoundException();
             $order->markAsPaid();
             $this->orders->save($order);
+
+            $this->db->afterCommit(
+                fn () => $this->events->dispatch(new OrderPaid(new OrderId($cmd->orderId))),
+            );
         });
-        DB::afterCommit(fn () => $this->events->dispatch(new OrderPaid(new OrderId($cmd->orderId))));
     }
 }
 ```

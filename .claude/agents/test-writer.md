@@ -45,7 +45,7 @@ Tests mirror `src/app/` under `src/tests/`.
 
 ## PHPUnit Style
 - Use attributes: `#[Test]`, `#[DataProvider]`, `#[CoversClass]`.
-- Namespace follows path: `Tests\Unit\Domain\{Ctx}\Entity`, etc.
+- Namespace follows path: `Tests\Unit\Domain\{Ctx}`, `Tests\Unit\Application\{Ctx}`, `Tests\Feature\{Ctx}`, etc.
 - Stubs: `.claude/skills/laravel-ddd-architect/Tests/test-domain.stub`,
   `Tests/test-feature.stub`.
 

@@ -109,7 +109,7 @@ Brief rationale: 1–2 sentences on why this tier was chosen.
 Example:
 
 ```
-// src/app/Application/Order/CreateOrder/CreateOrderAction.php
+// src/app/Application/Order/UseCase/CreateOrder/CreateOrderAction.php
 final readonly class CreateOrderAction { ... }
 ```
 
@@ -144,39 +144,45 @@ Two valid layouts. Choose based on project size.
 ```
 src/app/
 ├── Domain/
-│   ├── Order/
-│   │   ├── Order.php
-│   │   ├── OrderId.php
-│   │   ├── OrderStatus.php
-│   │   ├── OrderRepository.php        // interface
-│   │   └── Events/OrderPaid.php
-│   └── Customer/
+│   └── {Ctx}/                                 # bounded context (Order, Customer, ...)
+│       ├── Entity/                            # Aggregate roots, entities
+│       ├── ValueObject/                       # Immutable readonly classes
+│       ├── Repository/                        # Interfaces only
+│       ├── Event/                             # Past-tense domain events
+│       └── Exception/                         # Named after violated invariant
+│
 ├── Application/
-│   ├── Order/
-│   │   ├── CreateOrder/
-│   │   │   ├── CreateOrderAction.php
-│   │   │   └── CreateOrderData.php    // DTO
-│   │   └── CancelOrder/
-│   └── Shared/
+│   └── {Ctx}/
+│       ├── UseCase/{Verb}{Noun}/              # one folder per use case
+│       │   ├── {Verb}{Noun}Action.php         # readonly class, handle()
+│       │   └── {Verb}{Noun}Data.php           # readonly DTO, co-located
+│       ├── Command/                           # optional, when CQRS bus is used
+│       └── Query/                             # optional, read-side
+│
 ├── Infrastructure/
-│   ├── Persistence/
-│   │   └── Eloquent/
-│   │       ├── Models/OrderModel.php
-│   │       └── Repositories/EloquentOrderRepository.php
-│   ├── Mail/
-│   └── Http/Clients/
+│   └── {Ctx}/
+│       ├── Persistence/Eloquent/
+│       │   ├── Models/                        # {Entity}Model.php
+│       │   ├── Repositories/                  # Eloquent{Name}Repository.php
+│       │   └── Mappers/                       # {Entity}Mapper.php
+│       ├── Event/Listener/                    # SendXOnY listeners
+│       ├── Job/                               # ProcessXJob.php
+│       └── Provider/                          # {Ctx}ServiceProvider.php
+│
 └── Interface/
-    ├── Http/
-    │   ├── Order/
-    │   │   ├── Controller/CreateOrderController.php
-    │   │   ├── Request/CreateOrderRequest.php
-    │   │   └── Resource/OrderResource.php
-    └── Console/Commands/
+    └── Http/
+        └── {Ctx}/
+            ├── Controller/                    # Invokable, thin
+            ├── Request/                       # FormRequest with authorize() + rules()
+            ├── Resource/                      # JsonResource
+            └── Policy/                        # registered via Gate::policy()
 
 src/tests/
-├── Unit/Domain/Order/OrderTest.php
-├── Feature/Order/CreateOrderTest.php
-└── Integration/Infrastructure/Persistence/EloquentOrderRepositoryTest.php
+├── Unit/Domain/{Ctx}/                         # Pure PHP, no framework boot
+├── Unit/Application/{Ctx}/                    # Action / UseCase tests
+├── Feature/{Ctx}/                             # HTTP endpoints, full container
+├── Integration/Infrastructure/{Ctx}/          # Real DB, repository round-trips
+└── Architecture/                              # arch() layer boundary rules
 ```
 
 ---
@@ -229,12 +235,13 @@ Database
 
 ## Naming Per Layer
 
-| Layer | Suffixes / forms |
-|---|---|
-| Domain | `Order`, `OrderId`, `Money`, `OrderRepository` (interface) |
-| Application | `CreateOrderAction`, `CreateOrderData`, `GetOrderQuery`, `OrderDto` |
-| Infrastructure | `OrderModel`, `EloquentOrderRepository`, `StripePaymentGateway` |
-| Interface/Http | `CreateOrderController`, `CreateOrderRequest`, `OrderResource` |
+| Layer | Namespace | Suffixes / forms |
+|---|---|---|
+| Domain | `App\Domain\{Ctx}\...` | `Order`, `OrderId`, `Money`, `OrderRepository` (interface) |
+| Application | `App\Application\{Ctx}\UseCase\{Verb}{Noun}\...` | `CreateOrderAction`, `CreateOrderData`, `GetOrderQuery` |
+| Infrastructure | `App\Infrastructure\{Ctx}\...` | `OrderModel`, `EloquentOrderRepository`, `StripePaymentGateway` |
+| Interface/Http | `App\Interface\Http\{Ctx}\...` | `CreateOrderController`, `CreateOrderRequest`, `OrderResource` |
+| Module variant | `App\Modules\{Ctx}\{Layer}\...` | same forms, single bounded-context tree |
 
 Do not name anything `OrderManager`, `OrderHelper`, `OrderUtil`, or `OrderService` unless the project's legacy code already uses the suffix and renaming is out of scope.
 
@@ -248,14 +255,18 @@ DTOs belong in **Application** or **UI**. Never in Domain. A Domain VO is not a 
 
 ## Test Layout
 
-Mirror the production layout under `src/tests/`:
+Mirror the production layout under `src/tests/`. Bounded context is preserved on the test side too.
 
 ```
 src/tests/
-├── Unit/Domain/Order/OrderTest.php
-├── Feature/Order/CreateOrderTest.php
-└── Integration/Infrastructure/Persistence/EloquentOrderRepositoryTest.php
+├── Unit/Domain/{Ctx}/OrderTest.php
+├── Unit/Application/{Ctx}/CreateOrderActionTest.php
+├── Feature/{Ctx}/CreateOrderTest.php
+├── Integration/Infrastructure/{Ctx}/EloquentOrderRepositoryTest.php
+└── Architecture/{Ctx}ArchTest.php
 ```
+
+Module-first layouts mirror under `src/tests/Unit/Modules/{Ctx}/...`, `src/tests/Feature/Modules/{Ctx}/...`, etc.
 # Module Generation
 
 When creating a new feature at **Medium** or **Complex** complexity, generate the full set of files below. Do not collapse everything into one class.
@@ -267,39 +278,43 @@ When creating a new feature at **Medium** or **Complex** complexity, generate th
 ### Domain (`src/app/Domain/Order/` or `src/app/Modules/Order/Domain/`)
 
 ```
-Order.php                  // Aggregate root
-OrderId.php                // Value object
-OrderStatus.php            // Enum or VO
-Money.php                  // VO, shared
-OrderRepository.php        // Interface
-Events/
+Entity/
+  Order.php                // Aggregate root
+ValueObject/
+  OrderId.php
+  OrderStatus.php
+  Money.php                // shared VO
+Repository/
+  OrderRepository.php      // Interface
+Event/
   OrderCreated.php
   OrderPaid.php
-Exceptions/
-  OrderNotFound.php
-  InvalidOrderStatus.php
+Exception/
+  OrderNotFoundException.php
+  InvalidOrderStatusException.php
 ```
 
-### Application
+### Application (`src/app/Application/Order/` or `src/app/Modules/Order/Application/`)
 
 ```
-Order/
+UseCase/
   CreateOrder/
     CreateOrderAction.php
-    CreateOrderData.php
+    CreateOrderData.php    // DTO co-located with the action
   PayOrder/
     PayOrderAction.php
     PayOrderData.php
   CancelOrder/
     CancelOrderAction.php
     CancelOrderData.php
-  Queries/
-    GetOrderQuery.php
-    GetOrderHandler.php
-    OrderView.php          // Read-side DTO
+Query/
+  GetOrderDashboard/
+    GetOrderDashboardQuery.php
+    GetOrderDashboardHandler.php
+    DashboardView.php      // Read-side DTO
 ```
 
-### Infrastructure
+### Infrastructure (`src/app/Infrastructure/Order/` or `src/app/Modules/Order/Infrastructure/`)
 
 ```
 Persistence/Eloquent/
@@ -310,26 +325,28 @@ Persistence/Eloquent/
     EloquentOrderRepository.php
   Mappers/
     OrderMapper.php        // Eloquent ↔ Domain
-Events/
-  Listeners/
-    SendOrderReceipt.php
+Event/Listener/
+  SendReceiptOnOrderPaid.php
+Job/
+  ProcessOrderPaymentJob.php
+Provider/
+  OrderServiceProvider.php
 ```
 
-### UI
+### UI (`src/app/Interface/Http/Order/` or `src/app/Modules/Order/UI/Http/`)
 
 ```
-Http/
-  Controllers/
-    CreateOrderController.php    // invokable
-    PayOrderController.php
-    GetOrderController.php
-  Requests/
-    CreateOrderRequest.php       // extends FormRequest, has authorize() + rules()
-    PayOrderRequest.php
-  Resources/
-    OrderResource.php
-Console/Commands/
-  (optional artisan commands)
+Controller/
+  CreateOrderController.php    // invokable
+  PayOrderController.php
+  GetOrderController.php
+Request/
+  CreateOrderRequest.php       // extends FormRequest, has authorize() + rules()
+  PayOrderRequest.php
+Resource/
+  OrderResource.php
+Policy/
+  OrderPolicy.php              // registered via Gate::policy()
 ```
 
 ### Tests
@@ -339,6 +356,8 @@ src/tests/Unit/Domain/Order/
   OrderTest.php
   OrderIdTest.php
   MoneyTest.php
+src/tests/Unit/Application/Order/
+  CreateOrderActionTest.php
 src/tests/Feature/Order/
   CreateOrderTest.php
   PayOrderTest.php
@@ -355,11 +374,10 @@ src/tests/Architecture/
 Skip Domain entities and the repository interface. Use Eloquent directly.
 
 ```
-src/app/Application/Invoice/
-  CreateInvoice/
-    CreateInvoiceAction.php
-    CreateInvoiceData.php
-src/app/Infrastructure/Persistence/Eloquent/Models/InvoiceModel.php
+src/app/Application/Invoice/UseCase/CreateInvoice/
+  CreateInvoiceAction.php
+  CreateInvoiceData.php
+src/app/Infrastructure/Invoice/Persistence/Eloquent/Models/InvoiceModel.php
 src/app/Interface/Http/Invoice/
   Controller/CreateInvoiceController.php
   Request/CreateInvoiceRequest.php
@@ -438,7 +456,7 @@ final class CustomerResource extends JsonResource
 Action encapsulates the use case. DTO at the Application boundary. No repository interface yet.
 
 ```php
-// src/app/Application/Customer/CreateCustomer/CreateCustomerData.php
+// src/app/Application/Customer/UseCase/CreateCustomer/CreateCustomerData.php
 final readonly class CreateCustomerData
 {
     public function __construct(
@@ -455,7 +473,7 @@ final readonly class CreateCustomerData
     }
 }
 
-// src/app/Application/Customer/CreateCustomer/CreateCustomerAction.php
+// src/app/Application/Customer/UseCase/CreateCustomer/CreateCustomerAction.php
 final readonly class CreateCustomerAction
 {
     public function __construct(
@@ -498,6 +516,8 @@ final class CreateCustomerController
 
 ```php
 // src/app/Domain/Order/ValueObject/OrderId.php
+namespace App\Domain\Order\ValueObject;
+
 final readonly class OrderId
 {
     public function __construct(public string $value)
@@ -514,6 +534,8 @@ final readonly class OrderId
 }
 
 // src/app/Domain/Order/Entity/Order.php
+namespace App\Domain\Order\Entity;
+
 final class Order
 {
     /** @var list<OrderItem> */
@@ -553,13 +575,17 @@ final class Order
 }
 
 // src/app/Domain/Order/Repository/OrderRepository.php
+namespace App\Domain\Order\Repository;
+
 interface OrderRepository
 {
     public function save(Order $order): void;
     public function findById(OrderId $id): ?Order;
 }
 
-// src/app/Application/Order/CreateOrder/CreateOrderAction.php
+// src/app/Application/Order/UseCase/CreateOrder/CreateOrderAction.php
+namespace App\Application\Order\UseCase\CreateOrder;
+
 final readonly class CreateOrderAction
 {
     public function __construct(
@@ -583,6 +609,8 @@ final readonly class CreateOrderAction
 }
 
 // src/app/Infrastructure/Order/Persistence/Eloquent/Repositories/EloquentOrderRepository.php
+namespace App\Infrastructure\Order\Persistence\Eloquent\Repositories;
+
 final class EloquentOrderRepository implements OrderRepository
 {
     public function __construct(private OrderMapper $mapper) {}
@@ -606,6 +634,8 @@ final class EloquentOrderRepository implements OrderRepository
 }
 
 // src/app/Interface/Http/Order/Controller/CreateOrderController.php
+namespace App\Interface\Http\Order\Controller;
+
 final class CreateOrderController
 {
     public function __invoke(

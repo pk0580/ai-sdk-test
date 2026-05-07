@@ -10,7 +10,7 @@ Docker-only workflow в WSL2.
 | Зависимость | Где нужна |
 |---|---|
 | WSL2 Ubuntu | хост |
-| `bash`, `docker` CLI | хост |
+| `bash`, `docker`, `python3` CLI | хост |
 | Docker-контейнер с PHP 8.4 + Laravel | запущен при работе с Claude |
 
 ---

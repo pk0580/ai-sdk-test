@@ -89,13 +89,17 @@ Applies to files inside `src/app/Infrastructure/` (or `src/app/Modules/*/Infrast
 
 ## Typical Contents
 
+Each bounded context has the following structure under `src/app/Infrastructure/{Ctx}/`:
+
 - Eloquent models (`Persistence/Eloquent/Models/`)
-- Repository implementations (`Persistence/Eloquent/Repositories/`)
+- Repository implementations (`Persistence/Eloquent/Repositories/Eloquent{Name}Repository.php`)
 - Mappers between Eloquent and Domain (`Persistence/Eloquent/Mappers/`)
+- Domain event listeners (`Event/Listener/`)
+- Queued jobs (`Job/`)
+- Service provider (`Provider/{Ctx}ServiceProvider.php`)
 - HTTP clients (`Http/Clients/`)
 - External SDK adapters (`Stripe/`, `S3/`, ...)
 - Mail sender adapters
-- Queue handlers (or in `Application` if they are the use case itself)
 
 ## Required Patterns
 

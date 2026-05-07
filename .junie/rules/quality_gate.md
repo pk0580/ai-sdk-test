@@ -28,7 +28,9 @@ Heavier weight at the feature layer is fine for Laravel apps; the framework is i
 
 ```php
 // src/tests/Unit/Domain/Order/OrderTest.php
-use App\Domain\Order\{Order, OrderStatus, CustomerId};
+use App\Domain\Order\Entity\Order;
+use App\Domain\Order\ValueObject\{OrderStatus, CustomerId};
+use App\Domain\Order\Exception\InvalidOrderStatusException;
 
 it('creates an order in draft status', function () {
     $order = Order::create(new CustomerId('c-1'));
@@ -53,7 +55,8 @@ No `RefreshDatabase`, no `TestCase` — pure PHPUnit/Pest with the Domain class 
 namespace Tests\Unit\Domain\Order;
 
 use PHPUnit\Framework\TestCase;
-use App\Domain\Order\{Order, OrderStatus, CustomerId};
+use App\Domain\Order\Entity\Order;
+use App\Domain\Order\ValueObject\{OrderStatus, CustomerId};
 use PHPUnit\Framework\Attributes\Test;
 
 final class OrderTest extends TestCase
@@ -128,7 +131,15 @@ it('round-trips an order', function () {
 // src/tests/Architecture/LayersTest.php
 arch('domain has no framework imports')
     ->expect('App\Domain')
-    ->not->toUse(['Illuminate', 'Symfony', 'Eloquent']);
+    ->not->toUse(['Illuminate', 'Symfony', 'Eloquent', 'Carbon\Carbon']);
+
+arch('application has no http or eloquent imports')
+    ->expect('App\Application')
+    ->not->toUse([
+        'Illuminate\Http',
+        'Illuminate\Database\Eloquent',
+        'Illuminate\Support\Facades\Auth',
+    ]);
 
 arch('controllers are invokable or thin')
     ->expect('App\Interface\Http')
@@ -136,6 +147,11 @@ arch('controllers are invokable or thin')
 
 arch('actions are readonly')
     ->expect('App\Application')
+    ->classes()
+    ->toBeReadonly();
+
+arch('value objects are readonly')
+    ->expect('App\Domain')
     ->classes()
     ->toBeReadonly();
 ```
@@ -790,8 +806,9 @@ Actions composing Actions is fine. Avoid a root Action that orchestrates ten sub
 
 ## Where Actions Live
 
-- Simple tier: `src/app/Application/<Noun>/<Verb><Noun>Action.php`
-- Medium / Complex tier: `src/app/Application/<Module>/<Verb><Noun>/<Verb><Noun>Action.php`
+- Simple tier: typically no Action (controller calls Eloquent directly).
+- Medium / Complex tier: `src/app/Application/{Ctx}/UseCase/{Verb}{Noun}/{Verb}{Noun}Action.php` with the matching `{Verb}{Noun}Data.php` DTO co-located in the same folder.
+- Module-first variant: `src/app/Modules/{Ctx}/Application/UseCase/{Verb}{Noun}/...`
 
 ## Banned
 

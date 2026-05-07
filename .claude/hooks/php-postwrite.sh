@@ -27,6 +27,9 @@ container_root="${CLAUDE_CONTAINER_ROOT:-/var/www/html}"
 payload=$(cat)
 f=$(extract_file_path "$payload")
 
+# Normalize src_prefix to end with a slash if it doesn't already
+[[ "$src_prefix" != */ ]] && src_prefix="${src_prefix}/"
+
 # Only handle PHP files.
 case "$f" in
   *.php) ;;
@@ -49,7 +52,7 @@ fi
 target="${container_root%/}/${rel}"
 
 if ! out=$(docker exec --workdir "$container_root" "$container" \
-            sh -c './vendor/bin/pint "$1" 2>&1 && php -l "$1" 2>&1' \
+            sh -c '[ -f ./vendor/bin/pint ] && ./vendor/bin/pint "$1" 2>&1; php -l "$1" 2>&1' \
             _ "$target" 2>&1); then
   echo "$out" >&2
   exit 1

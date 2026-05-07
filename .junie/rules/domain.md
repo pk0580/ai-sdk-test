@@ -6,13 +6,16 @@ Pure PHP. No framework. No I/O.
 
 ## What Goes Here
 
-- **Entities** — objects with identity (`Order`, `Customer`). Behavior-rich, invariants enforced in constructor and methods.
-- **Value Objects** — immutable, equality by value (`Money`, `Email`, `OrderId`, `OrderStatus`).
-- **Aggregate roots** — the entity a repository loads and saves. Children are reached through it.
-- **Domain services** — stateless operations that span entities and do not naturally belong to one (`PriceCalculator`).
-- **Domain events** — past-tense records of things that happened (`OrderPaid`).
-- **Repository interfaces** — contracts for persistence, implemented by Infrastructure.
-- **Domain exceptions** — business-meaningful failures (`InvalidOrderStatusException`).
+Each bounded context has the following subfolders under `src/app/Domain/{Ctx}/`:
+
+| Subfolder | Contents | Example |
+|---|---|---|
+| `Entity/` | Aggregate roots and entities with identity | `Entity/Order.php` |
+| `ValueObject/` | Immutable, equality by value | `ValueObject/Money.php`, `ValueObject/OrderId.php` |
+| `Repository/` | Persistence contracts (interfaces only) | `Repository/OrderRepository.php` |
+| `Event/` | Past-tense domain events, ids only | `Event/OrderPaid.php` |
+| `Exception/` | Business-meaningful failures, named after the violated invariant | `Exception/InvalidOrderStatusException.php` |
+| `Service/` (optional, rare) | Stateless domain services that span entities | `Service/PriceCalculator.php` |
 
 ## What Does Not Go Here
 
@@ -28,9 +31,12 @@ Pure PHP. No framework. No I/O.
 Enforce invariants in the constructor and in every mutating method. Never trust callers.
 
 ```php
-final class Email
+// src/app/Domain/Customer/ValueObject/Email.php
+namespace App\Domain\Customer\ValueObject;
+
+final readonly class Email
 {
-    public function __construct(public readonly string $value)
+    public function __construct(public string $value)
     {
         if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException("Invalid email: $value");
@@ -38,11 +44,14 @@ final class Email
     }
 }
 
-final class Money
+// src/app/Domain/Order/ValueObject/Money.php
+namespace App\Domain\Order\ValueObject;
+
+final readonly class Money
 {
     public function __construct(
-        public readonly int $amountCents,
-        public readonly string $currency,
+        public int $amountCents,
+        public string $currency,
     ) {
         if ($amountCents < 0) {
             throw new InvalidArgumentException('Money cannot be negative');
@@ -70,6 +79,12 @@ final class Money
 - Do not implement `toArray()`; mapping to persistence or JSON is done outside.
 
 ```php
+// src/app/Domain/Order/Entity/Order.php
+namespace App\Domain\Order\Entity;
+
+use App\Domain\Order\ValueObject\{OrderId, CustomerId, OrderStatus};
+use App\Domain\Order\Exception\InvalidOrderStatusException;
+
 final class Order
 {
     private function __construct(
@@ -120,6 +135,11 @@ final class Order
 - Raised by entities or Actions, dispatched by Application layer after successful write.
 
 ```php
+// src/app/Domain/Order/Event/OrderPaid.php
+namespace App\Domain\Order\Event;
+
+use App\Domain\Order\ValueObject\OrderId;
+
 final readonly class OrderPaid
 {
     public function __construct(
@@ -134,6 +154,12 @@ final readonly class OrderPaid
 Defined in Domain, implemented in Infrastructure.
 
 ```php
+// src/app/Domain/Order/Repository/OrderRepository.php
+namespace App\Domain\Order\Repository;
+
+use App\Domain\Order\Entity\Order;
+use App\Domain\Order\ValueObject\OrderId;
+
 interface OrderRepository
 {
     public function save(Order $order): void;

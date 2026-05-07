@@ -23,6 +23,16 @@ Orchestrate one use case per class. Depend on Domain and on infrastructure inter
 ## Action Structure
 
 ```php
+// src/app/Application/Order/UseCase/CreateOrder/CreateOrderAction.php
+namespace App\Application\Order\UseCase\CreateOrder;
+
+use App\Domain\Order\Entity\Order;
+use App\Domain\Order\Event\OrderCreated;
+use App\Domain\Order\Repository\OrderRepository;
+use App\Domain\Order\ValueObject\{CustomerId, Money, OrderId, Sku};
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\DatabaseManager;
+
 final readonly class CreateOrderAction
 {
     public function __construct(
@@ -64,6 +74,11 @@ Rules:
 Prefer `readonly` classes with typed properties. Use `spatie/laravel-data` when the DTO must map to HTTP forms or JSON with validation.
 
 ```php
+// src/app/Application/Order/UseCase/CreateOrder/CreateOrderData.php — co-located with the action
+namespace App\Application\Order\UseCase\CreateOrder;
+
+use App\Interface\Http\Order\Request\CreateOrderRequest;
+
 final readonly class CreateOrderData
 {
     /** @param list<CreateOrderItemData> $items */
